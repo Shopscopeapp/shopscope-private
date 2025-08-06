@@ -2,6 +2,8 @@
 
 A complete brand-facing system for connecting Shopify stores to the ShopScope marketplace using **private app integration** instead of public Shopify apps. This approach bypasses Shopify's app store review process while providing all the same functionality.
 
+<!-- Force fresh deployment - cache cleared -->
+
 ## 🚀 Why Private App Integration?
 
 - ✅ **No App Store Delays** - Skip Shopify's lengthy review process
