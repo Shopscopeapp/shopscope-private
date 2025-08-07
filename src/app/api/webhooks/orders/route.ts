@@ -222,3 +222,4 @@ function getPaymentStatus(financialStatus: string): string {
       return 'pending'
   }
 }
+
