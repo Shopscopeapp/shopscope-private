@@ -408,30 +408,17 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        // First, validate the session
-        const sessionResponse = await fetch('/api/auth/validate-session')
-        const sessionData = await sessionResponse.json()
+        // Get user directly from Supabase
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
         
-        if (!sessionResponse.ok) {
-          console.error('Session validation failed:', sessionData.error)
-          setAuthError(sessionData.error || 'Authentication failed')
+        if (userError || !user) {
+          console.error('Authentication failed:', userError)
+          setAuthError('Not authenticated. Please sign in.')
           setIsLoading(false)
           return
         }
 
-        if (!sessionData.success || !sessionData.user) {
-          setAuthError('No active session found')
-          setIsLoading(false)
-          return
-        }
-
-        // Now get the user from Supabase to ensure we have the latest session
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          setAuthError('Not authenticated')
-          setIsLoading(false)
-          return
-        }
+        console.log('✅ User authenticated:', user.email)
 
         // Get brand data
         const { data: brandData, error: brandError } = await supabase

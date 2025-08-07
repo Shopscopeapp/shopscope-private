@@ -103,6 +103,9 @@ export default function SignupPage() {
 
       console.log('Account created successfully:', result)
       
+      // Add a small delay to ensure session is properly established
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       // Redirect to dashboard
       window.location.href = '/dashboard'
       

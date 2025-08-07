@@ -447,6 +447,67 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Shopify Custom API Information */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <Cog6ToothIcon className="w-8 h-8 text-shopscope-black mr-3" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-shopscope-black">Shopify Custom API Setup</h3>
+                      <p className="text-sm text-shopscope-gray-600">Configure your private Shopify app for ShopScope integration</p>
+                    </div>
+                  </div>
+                  <ExclamationTriangleIcon className="w-6 h-6 text-yellow-500" />
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-2">Setup Instructions</h4>
+                    <div className="text-sm text-blue-800 space-y-2">
+                      <p><strong>1. Create Private App:</strong> In your Shopify admin, go to Apps → Develop apps → Create an app</p>
+                      <p><strong>2. Configure Permissions:</strong> Enable the following scopes:</p>
+                      <ul className="ml-4 list-disc space-y-1">
+                        <li>read_products, write_products</li>
+                        <li>read_orders, write_orders</li>
+                        <li>read_inventory, write_inventory</li>
+                        <li>read_shipping, write_shipping</li>
+                      </ul>
+                      <p><strong>3. Get API Credentials:</strong> Copy your API key and secret from the app settings</p>
+                      <p><strong>4. Configure Webhooks:</strong> Add webhook endpoints for real-time updates</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h4 className="font-medium text-gray-900 mb-2">Required Webhook Endpoints</h4>
+                    <div className="text-sm text-gray-700 space-y-2">
+                      <p><strong>Orders:</strong> <code className="bg-gray-200 px-1 rounded">https://your-shopscope-domain.com/api/webhooks/orders</code></p>
+                      <p><strong>Products:</strong> <code className="bg-gray-200 px-1 rounded">https://your-shopscope-domain.com/api/webhooks/products</code></p>
+                      <p><strong>Inventory:</strong> <code className="bg-gray-200 px-1 rounded">https://your-shopscope-domain.com/api/webhooks/inventory</code></p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-900 mb-2">Integration Status</h4>
+                    <div className="text-sm text-green-800">
+                      <p><strong>Store Domain:</strong> {settings?.shopify_domain || 'Not configured'}</p>
+                      <p><strong>Connection Status:</strong> {settings?.shopify_connected ? 'Connected' : 'Not connected'}</p>
+                      <p><strong>Last Sync:</strong> {settings?.shopify_connected ? 'Active' : 'Never'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button className="btn-secondary">
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      View Documentation
+                    </button>
+                    <button className="btn-outline">
+                      <Cog6ToothIcon className="w-4 h-4 mr-2" />
+                      Test Connection
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

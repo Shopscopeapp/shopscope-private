@@ -28,8 +28,6 @@ interface Order {
   created_at: string
   updated_at: string
   shipping_address?: any
-  customer_email?: string
-  customer_name?: string
   line_items?: any[]
 }
 
@@ -105,9 +103,7 @@ export default function OrdersPage() {
           fulfillment_status,
           created_at,
           updated_at,
-          shipping_address,
-          customer_email,
-          customer_name
+          shipping_address
         `)
         .eq('merchant_id', brandData.id)
         .gte('created_at', startDate.toISOString())
@@ -170,12 +166,32 @@ export default function OrdersPage() {
     }
   }
 
+  // Helper function to extract customer info from shipping_address
+  const getCustomerInfo = (order: Order) => {
+    const address = order.shipping_address
+    if (!address) return { name: 'Guest Customer', email: 'No email' }
+    
+    const email = address.email || 'No email'
+    let name = 'Guest Customer'
+    
+    if (address.name) {
+      name = address.name
+    } else if (address.first_name || address.last_name) {
+      const firstName = address.first_name || ''
+      const lastName = address.last_name || ''
+      name = `${firstName} ${lastName}`.trim() || 'Guest Customer'
+    }
+    
+    return { name, email }
+  }
+
   // Filter orders
   const filteredOrders = orders.filter(order => {
+    const customerInfo = getCustomerInfo(order)
     const matchesSearch = 
       order.shopify_order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customerInfo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.order_id.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter
@@ -383,10 +399,10 @@ export default function OrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-medium text-shopscope-black">
-                          {order.customer_name || 'Guest Customer'}
+                          {getCustomerInfo(order).name}
                         </div>
                         <div className="text-sm text-shopscope-gray-500">
-                          {order.customer_email || 'No email'}
+                          {getCustomerInfo(order).email}
                         </div>
                       </div>
                     </td>
