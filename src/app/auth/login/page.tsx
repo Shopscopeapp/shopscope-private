@@ -56,18 +56,32 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      // API call would go here
-      console.log('Signing in:', formData)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Call the login API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Login failed')
+      }
+
+      console.log('Login successful:', result)
       
       // Redirect to dashboard
       window.location.href = '/dashboard'
       
     } catch (error) {
       console.error('Login error:', error)
-      setErrors({ submit: 'Invalid email or password. Please try again.' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Invalid email or password. Please try again.' })
     } finally {
       setLoading(false)
     }

@@ -79,18 +79,36 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      // API call would go here
-      console.log('Creating account:', formData)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Call the signup API
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brandName: formData.brandName,
+          email: formData.email,
+          password: formData.password,
+          shopifyDomain: formData.shopifyDomain,
+          contactName: formData.contactName,
+          phone: formData.phone
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create account')
+      }
+
+      console.log('Account created successfully:', result)
       
       // Redirect to Shopify connection setup
       window.location.href = '/auth/connect-shopify'
       
     } catch (error) {
       console.error('Signup error:', error)
-      setErrors({ submit: 'Failed to create account. Please try again.' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to create account. Please try again.' })
     } finally {
       setLoading(false)
     }
