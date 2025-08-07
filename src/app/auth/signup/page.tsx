@@ -15,7 +15,6 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    shopifyDomain: '',
     contactName: '',
     phone: ''
   })
@@ -58,12 +57,6 @@ export default function SignupPage() {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
-    if (!formData.shopifyDomain.trim()) {
-      newErrors.shopifyDomain = 'Shopify domain is required'
-    } else if (!formData.shopifyDomain.includes('.myshopify.com')) {
-      newErrors.shopifyDomain = 'Please enter your full Shopify domain (e.g., yourstore.myshopify.com)'
-    }
-
     if (!formData.contactName.trim()) {
       newErrors.contactName = 'Contact name is required'
     }
@@ -89,7 +82,6 @@ export default function SignupPage() {
           brandName: formData.brandName,
           email: formData.email,
           password: formData.password,
-          shopifyDomain: formData.shopifyDomain,
           contactName: formData.contactName,
           phone: formData.phone
         })
@@ -103,8 +95,8 @@ export default function SignupPage() {
 
       console.log('Account created successfully:', result)
       
-      // Redirect to Shopify connection setup
-      window.location.href = '/auth/connect-shopify'
+      // Redirect to dashboard
+      window.location.href = '/dashboard'
       
     } catch (error) {
       console.error('Signup error:', error)
@@ -207,31 +199,6 @@ export default function SignupPage() {
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 className="text-lg font-semibold text-shopscope-black mb-4">
-              Shopify Store Information
-            </h3>
-            
-            <div>
-              <label htmlFor="shopifyDomain" className="block text-sm font-medium text-gray-700 mb-1">
-                Shopify Domain *
-              </label>
-              <input
-                type="text"
-                id="shopifyDomain"
-                name="shopifyDomain"
-                value={formData.shopifyDomain}
-                onChange={handleInputChange}
-                className={`input-field ${errors.shopifyDomain ? 'border-red-500' : ''}`}
-                placeholder="yourstore.myshopify.com"
-              />
-              {errors.shopifyDomain && <p className="text-red-500 text-sm mt-1">{errors.shopifyDomain}</p>}
-              <p className="text-xs text-gray-500 mt-1">
-                Enter your full Shopify domain including .myshopify.com
-              </p>
             </div>
           </div>
 

@@ -428,10 +428,10 @@ export default function DashboardPage() {
           return
         }
 
-        // Check if Shopify is properly connected
-        if (!brandData.shopify_connected || !brandData.shopify_domain || !brandData.shopify_access_token) {
-          console.log('⚠️ Shopify not properly connected, redirecting to connection flow')
-          window.location.href = '/auth/connect-shopify?reconnect=true'
+        // Check if brand is properly set up
+        if (!brandData.name) {
+          console.log('⚠️ Brand not properly set up, redirecting to setup')
+          window.location.href = '/dashboard/settings'
           return
         }
 

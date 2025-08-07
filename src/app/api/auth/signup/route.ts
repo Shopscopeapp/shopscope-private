@@ -4,10 +4,10 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
-    const { brandName, email, password, shopifyDomain, contactName, phone } = await request.json()
+    const { brandName, email, password, contactName, phone } = await request.json()
 
     // Validate required fields
-    if (!brandName || !email || !password || !shopifyDomain || !contactName) {
+    if (!brandName || !email || !password || !contactName) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -30,55 +30,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate Shopify domain format
-    if (!shopifyDomain.includes('.myshopify.com')) {
-      return NextResponse.json(
-        { error: 'Invalid Shopify domain format' },
-        { status: 400 }
-      )
-    }
-
     const supabase = createRouteHandlerClient({ cookies })
-
-    // Check if user already exists
-    const { data: existingUser, error: userCheckError } = await supabase.auth.admin.getUserByEmail(email)
-    
-    if (userCheckError && userCheckError.message !== 'User not found') {
-      console.error('Error checking existing user:', userCheckError)
-      return NextResponse.json(
-        { error: 'Error checking user account' },
-        { status: 500 }
-      )
-    }
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 409 }
-      )
-    }
-
-    // Check if brand with this Shopify domain already exists
-    const { data: existingBrand, error: brandCheckError } = await supabase
-      .from('brands')
-      .select('id')
-      .eq('shopify_domain', shopifyDomain)
-      .single()
-
-    if (brandCheckError && brandCheckError.code !== 'PGRST116') {
-      console.error('Error checking existing brand:', brandCheckError)
-      return NextResponse.json(
-        { error: 'Error checking brand account' },
-        { status: 500 }
-      )
-    }
-
-    if (existingBrand) {
-      return NextResponse.json(
-        { error: 'Brand with this Shopify domain already exists' },
-        { status: 409 }
-      )
-    }
 
     // Create the user account
     const { data: newUser, error: userError } = await supabase.auth.admin.createUser({
@@ -116,7 +68,6 @@ export async function POST(request: Request) {
         contact_email: email,
         contact_name: contactName,
         phone: phone || null,
-        shopify_domain: shopifyDomain,
         shopify_connected: false,
         commission_rate: 0.10, // Default 10% commission
         created_at: new Date().toISOString(),
@@ -170,8 +121,7 @@ export async function POST(request: Request) {
       },
       brand: {
         id: newBrand.id,
-        name: newBrand.name,
-        shopify_domain: newBrand.shopify_domain
+        name: newBrand.name
       }
     })
 
