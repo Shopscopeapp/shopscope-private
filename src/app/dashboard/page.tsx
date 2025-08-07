@@ -408,6 +408,24 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboardData() {
       try {
+        // First, validate the session
+        const sessionResponse = await fetch('/api/auth/validate-session')
+        const sessionData = await sessionResponse.json()
+        
+        if (!sessionResponse.ok) {
+          console.error('Session validation failed:', sessionData.error)
+          setAuthError(sessionData.error || 'Authentication failed')
+          setIsLoading(false)
+          return
+        }
+
+        if (!sessionData.success || !sessionData.user) {
+          setAuthError('No active session found')
+          setIsLoading(false)
+          return
+        }
+
+        // Now get the user from Supabase to ensure we have the latest session
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           setAuthError('Not authenticated')
@@ -698,12 +716,21 @@ export default function DashboardPage() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl max-w-md">
           <h2 className="font-medium mb-2">Authentication Error</h2>
           <p className="mb-4">{authError}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="text-sm underline hover:no-underline"
-          >
-            Try again
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-sm underline hover:no-underline"
+            >
+              Try again
+            </button>
+            <span className="text-sm">or</span>
+            <button 
+              onClick={() => window.location.href = '/auth/login'} 
+              className="text-sm underline hover:no-underline"
+            >
+              Sign in
+            </button>
+          </div>
         </div>
       </div>
     )

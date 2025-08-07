@@ -4,10 +4,10 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
-    const { brandName, email, password, contactName, phone } = await request.json()
+    const { brandName, email, password, shopifyDomain, contactName, phone } = await request.json()
 
     // Validate required fields
-    if (!brandName || !email || !password || !contactName) {
+    if (!brandName || !email || !password || !shopifyDomain || !contactName) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -26,6 +26,14 @@ export async function POST(request: Request) {
     if (password.length < 8) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Validate Shopify domain format
+    if (!shopifyDomain.includes('.myshopify.com')) {
+      return NextResponse.json(
+        { error: 'Invalid Shopify domain format' },
         { status: 400 }
       )
     }
@@ -68,6 +76,7 @@ export async function POST(request: Request) {
         contact_email: email,
         contact_name: contactName,
         phone: phone || null,
+        shopify_domain: shopifyDomain,
         shopify_connected: false,
         commission_rate: 0.10, // Default 10% commission
         created_at: new Date().toISOString(),
@@ -121,7 +130,8 @@ export async function POST(request: Request) {
       },
       brand: {
         id: newBrand.id,
-        name: newBrand.name
+        name: newBrand.name,
+        shopify_domain: newBrand.shopify_domain
       }
     })
 
