@@ -26,8 +26,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const shop = searchParams.get('shop')
-    const host = searchParams.get('host')
-    const embedded = searchParams.get('embedded')
     const hmac = searchParams.get('hmac')
     const timestamp = searchParams.get('timestamp')
 
@@ -65,11 +63,7 @@ export async function GET(request: Request) {
       console.log('⚠️ No HMAC provided - assuming re-authentication request')
     }
 
-    // Check if this is an embedded app request
-    const isEmbedded = host && host.length > 0
-
-    // For ALL requests (embedded and non-embedded), initiate OAuth flow
-    // This is required during Shopify app installation
+    // For standalone private app, initiate OAuth flow
     const scopes = process.env.SHOPIFY_SCOPES || 'read_products,write_products,read_orders,write_orders,read_discounts,write_discounts,read_shipping,write_shipping,read_customers,write_customers,read_inventory,write_inventory'
     const host_url = process.env.NEXT_PUBLIC_HOST || `https://${request.headers.get('host')}`
     const redirectUri = `${host_url}/api/auth/callback`
@@ -84,8 +78,7 @@ export async function GET(request: Request) {
     authUrl.searchParams.set('redirect_uri', redirectUri)
     authUrl.searchParams.set('state', nonce)
 
-    // Use simple meta refresh redirect for all installation scenarios
-    // This ensures maximum compatibility with Shopify's automated checks
+    // Use simple meta refresh redirect for standalone installation
     const redirectHtml = `
       <!DOCTYPE html>
       <html>
@@ -123,7 +116,7 @@ export async function GET(request: Request) {
       <body>
         <div>
           <h2>Redirecting to Shopify authorization...</h2>
-          <p>Please grant permissions for this app.</p>
+          <p>Please grant permissions for this private app.</p>
           <div class="spinner"></div>
           <p style="margin-top: 20px; font-size: 14px; color: #666;">
             If you're not redirected automatically, 
@@ -146,4 +139,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
