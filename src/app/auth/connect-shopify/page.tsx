@@ -88,18 +88,43 @@ export default function ConnectShopifyPage() {
 
     setLoading(true)
     try {
-      // API call to validate and store credentials
-      console.log('Connecting with credentials:', apiCredentials)
+      // Get the current user's brand ID from the session
+      const response = await fetch('/api/auth/validate-session')
+      const sessionData = await response.json()
       
-      // Simulate API validation
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      if (!response.ok || !sessionData.success || !sessionData.brand) {
+        throw new Error('No active session or brand found. Please sign in again.')
+      }
+
+      // Call our API to connect the private app
+      const connectResponse = await fetch('/api/shopify/connect-private-app', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brandId: sessionData.brand.id,
+          shopifyDomain: sessionData.brand.shopify_domain,
+          apiKey: apiCredentials.apiKey,
+          apiSecret: apiCredentials.apiSecret,
+          accessToken: apiCredentials.accessToken
+        })
+      })
+
+      const connectData = await connectResponse.json()
+      
+      if (!connectResponse.ok) {
+        throw new Error(connectData.error || 'Failed to connect Shopify app')
+      }
+
+      console.log('✅ Shopify private app connected successfully:', connectData)
       
       // Redirect to dashboard
       window.location.href = '/dashboard'
       
     } catch (error) {
       console.error('Connection error:', error)
-      alert('Failed to connect. Please check your credentials and try again.')
+      alert(error instanceof Error ? error.message : 'Failed to connect. Please check your credentials and try again.')
     } finally {
       setLoading(false)
     }
