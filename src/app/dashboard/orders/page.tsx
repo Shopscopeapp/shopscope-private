@@ -19,7 +19,7 @@ import {
 
 interface Order {
   id: string
-  order_id: string
+  order_number: string
   shopify_order_id?: string
   total_amount: number
   commission_amount: number
@@ -90,12 +90,12 @@ export default function OrdersPage() {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - parseInt(dateRange))
 
-      // Fetch orders (merchant_orders table)
+      // Fetch orders from the orders table
       const { data: ordersData, error: ordersError } = await supabase
-        .from('merchant_orders')
+        .from('orders')
         .select(`
           id,
-          order_id,
+          order_number,
           shopify_order_id,
           total_amount,
           commission_amount,
@@ -103,9 +103,10 @@ export default function OrdersPage() {
           fulfillment_status,
           created_at,
           updated_at,
-          shipping_address
+          shipping_address,
+          line_items
         `)
-        .eq('merchant_id', brandData.id)
+        .eq('brand_id', brandData.id)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: false })
@@ -133,7 +134,7 @@ export default function OrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from('merchant_orders')
+        .from('orders')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', orderId)
 
@@ -151,7 +152,7 @@ export default function OrdersPage() {
   const handleFulfillmentChange = async (orderId: string, newFulfillment: string) => {
     try {
       const { error } = await supabase
-        .from('merchant_orders')
+        .from('orders')
         .update({ fulfillment_status: newFulfillment, updated_at: new Date().toISOString() })
         .eq('id', orderId)
 
@@ -192,7 +193,7 @@ export default function OrdersPage() {
       order.shopify_order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customerInfo.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customerInfo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.order_id.toLowerCase().includes(searchTerm.toLowerCase())
+      order.order_number.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter
     const matchesFulfillment = fulfillmentFilter === 'all' || order.fulfillment_status === fulfillmentFilter
@@ -389,7 +390,7 @@ export default function OrdersPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="font-medium text-shopscope-black">
-                          {order.shopify_order_id || `ORD-${order.order_id.slice(0, 8)}`}
+                          {order.shopify_order_id || `ORD-${order.order_number.slice(0, 8)}`}
                         </div>
                         <div className="text-sm text-shopscope-gray-500">
                           Mobile Order
@@ -440,12 +441,12 @@ export default function OrdersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-shopscope-black">
-                        ${order.total_amount.toFixed(2)}
+                        ${(order.total_amount || 0).toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-shopscope-black">
-                        ${order.commission_amount.toFixed(2)}
+                        ${(order.commission_amount || 0).toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
