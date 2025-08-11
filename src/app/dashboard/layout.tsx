@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import {
   HomeIcon,
   ShoppingBagIcon,
@@ -36,6 +37,17 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      router.push('/auth/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-shopscope-gray-50">
@@ -88,7 +100,10 @@ export default function DashboardLayout({
                 <UserCircleIcon className="w-5 h-5 mr-3" />
                 <span>Premium Brand</span>
               </div>
-              <button className="flex w-full items-center px-3 py-2 text-sm text-shopscope-gray-700 hover:bg-shopscope-gray-100 rounded-lg transition-colors">
+              <button 
+                onClick={handleSignOut}
+                className="flex w-full items-center px-3 py-2 text-sm text-shopscope-gray-700 hover:bg-shopscope-gray-100 rounded-lg transition-colors"
+              >
                 <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" />
                 Sign out
               </button>
@@ -139,7 +154,10 @@ export default function DashboardLayout({
             <UserCircleIcon className="w-5 h-5 mr-3" />
             <span>Premium Brand</span>
           </div>
-          <button className="flex w-full items-center px-3 py-2 text-sm text-shopscope-gray-700 hover:bg-shopscope-gray-100 rounded-lg transition-colors">
+          <button 
+            onClick={handleSignOut}
+            className="flex w-full items-center px-3 py-2 text-sm text-shopscope-gray-700 hover:bg-shopscope-gray-100 rounded-lg transition-colors"
+          >
             <ArrowRightOnRectangleIcon className="w-5 h-5 mr-3" />
             Sign out
           </button>
