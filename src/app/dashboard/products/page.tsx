@@ -14,7 +14,8 @@ import {
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
 
 interface Product {
@@ -44,6 +45,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('updated_at')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [brandId, setBrandId] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -133,10 +135,29 @@ export default function ProductsPage() {
     setSyncing(true)
 
     try {
+      // Get brand data to get shopify_domain and access token
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('shopify_domain, shopify_access_token')
+        .eq('id', brandId)
+        .single()
+
+      if (brandError || !brandData) {
+        throw new Error('Failed to get brand data')
+      }
+
+      if (!brandData.shopify_domain || !brandData.shopify_access_token) {
+        throw new Error('Brand not connected to Shopify. Please connect your Shopify store first.')
+      }
+
       const response = await fetch('/api/shopify/sync-products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brandId })
+        body: JSON.stringify({ 
+          brandId,
+          shop: brandData.shopify_domain,
+          accessToken: brandData.shopify_access_token
+        })
       })
 
       const data = await response.json()
@@ -144,8 +165,10 @@ export default function ProductsPage() {
 
       // Refresh data after sync
       await fetchData()
+      setSyncError(null) // Clear any previous errors
     } catch (error) {
       console.error('Error syncing products:', error)
+      setSyncError(error instanceof Error ? error.message : 'Failed to sync products')
     } finally {
       setSyncing(false)
     }
@@ -246,6 +269,19 @@ export default function ProductsPage() {
           </button>
         </div>
       </div>
+
+      {/* Sync Error Display */}
+      {syncError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center">
+            <ExclamationCircleIcon className="w-5 h-5 text-red-400 mr-2" />
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Sync Error</h3>
+              <p className="text-sm text-red-700 mt-1">{syncError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

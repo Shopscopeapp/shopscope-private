@@ -391,3 +391,4 @@ export default function UpsellProductList({ brandId }: UpsellProductListProps) {
     </div>
   )
 }
+

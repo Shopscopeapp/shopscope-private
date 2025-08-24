@@ -9,3 +9,4 @@ COMMENT ON COLUMN brands.shopify_private_app_secret IS 'Private app API secret f
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_brands_shopify_private_app_id ON brands(shopify_private_app_id);
+
