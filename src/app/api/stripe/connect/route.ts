@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -6,6 +6,12 @@ import Stripe from 'stripe'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 })
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(request: Request) {
   try {
@@ -60,27 +66,27 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
-    // Get the user's brand ID from Supabase
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
-      console.error('No session found during Stripe Connect callback')
-      
-      // Since we don't have a session, store the account ID in cookies temporarily
-      // and redirect to login page
-      cookies().set('stripe_account_id', connectedAccountId, { 
-        path: '/',
-        maxAge: 3600, // 1 hour
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production'
-      });
-      
-      return NextResponse.redirect(new URL('/auth/login?redirect=/dashboard/settings&stripe_connect=pending', request.url))
+    // Get the user's brand ID from Supabase using the authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('No authorization header found during Stripe Connect callback')
+      const errorUrl = '/auth/login?redirect=/dashboard/settings&stripe_connect=pending'
+      return NextResponse.redirect(new URL(errorUrl, request.url))
     }
 
-    console.log('Session found, updating brand with Stripe account ID', {
-      userId: session.user.id,
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Verify the token and get user info
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error('Invalid token during Stripe Connect callback:', authError)
+      const errorUrl = '/auth/login?redirect=/dashboard/settings&stripe_connect=pending'
+      return NextResponse.redirect(new URL(errorUrl, request.url))
+    }
+
+    console.log('User authenticated, updating brand with Stripe account ID', {
+      userId: user.id,
       stripeAccountId: connectedAccountId
     });
 
@@ -88,7 +94,7 @@ export async function GET(request: Request) {
     const { data: existingBrand, error: fetchError } = await supabase
       .from('brands')
       .select('id, stripe_connect_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (fetchError) {
@@ -106,12 +112,12 @@ export async function GET(request: Request) {
         stripe_connect_id: connectedAccountId,
         updated_at: new Date().toISOString()
       })
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       console.error('Error updating brand:', updateError);
       console.error('Update details:', {
-        userId: session.user.id,
+        userId: user.id,
         stripeAccountId: connectedAccountId,
         errorCode: updateError.code,
         errorMessage: updateError.message,
@@ -134,12 +140,19 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
-    // Standalone mode: Use traditional session-based authentication
-    const { data: { session } } = await supabase.auth.getSession()
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!session) {
+    const token = authHeader.replace('Bearer ', '')
+    
+    // Verify the token and get user info
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      console.error('Authentication error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -147,11 +160,11 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('brands')
       .select('id, stripe_connect_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (error) {
-      console.error('Brand not found for user:', session.user.id, error)
+      console.error('Brand not found for user:', user.id, error)
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 })
     }
 
