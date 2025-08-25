@@ -434,6 +434,29 @@ export default function DashboardPage() {
 
         console.log('✅ User authenticated:', user.email)
 
+        // Check for pending Stripe connection and complete it
+        try {
+          const response = await fetch('/api/stripe/connect', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            }
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            if (data.success && data.stripe_connect_id) {
+              console.log('✅ Completed pending Stripe connection:', data.stripe_connect_id)
+              // Refresh the page to show updated status
+              window.location.reload()
+              return
+            }
+          }
+        } catch (error) {
+          console.log('No pending Stripe connection or error:', error)
+        }
+
         // Get brand data
         const { data: brandData, error: brandError } = await supabase
           .from('brands')

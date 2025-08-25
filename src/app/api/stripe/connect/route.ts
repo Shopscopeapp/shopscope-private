@@ -66,75 +66,23 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL(errorUrl, request.url));
     }
 
-    // Get the user's brand ID from Supabase using the authorization header
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('No authorization header found during Stripe Connect callback')
-      const errorUrl = '/auth/login?redirect=/dashboard/settings&stripe_connect=pending'
-      return NextResponse.redirect(new URL(errorUrl, request.url))
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    
-    // Verify the token and get user info
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-    
-    if (authError || !user) {
-      console.error('Invalid token during Stripe Connect callback:', authError)
-      const errorUrl = '/auth/login?redirect=/dashboard/settings&stripe_connect=pending'
-      return NextResponse.redirect(new URL(errorUrl, request.url))
-    }
-
-    console.log('User authenticated, updating brand with Stripe account ID', {
-      userId: user.id,
-      stripeAccountId: connectedAccountId
+    // Store the Stripe account ID in a cookie for later processing
+    // This allows us to complete the connection when the user returns to the app
+    const cookieStore = cookies()
+    cookieStore.set('stripe_pending_account_id', connectedAccountId, {
+      path: '/',
+      maxAge: 3600, // 1 hour
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production'
     });
 
-    // Find brand by user_id for standalone mode
-    const { data: existingBrand, error: fetchError } = await supabase
-      .from('brands')
-      .select('id, stripe_connect_id')
-      .eq('user_id', user.id)
-      .single();
+    console.log('Stored pending Stripe account ID in cookie:', connectedAccountId);
 
-    if (fetchError) {
-      console.error('Error fetching brand:', fetchError);
-      const errorUrl = '/dashboard/settings?error=brand_not_found'
-      return NextResponse.redirect(new URL(errorUrl, request.url));
-    }
-
-    console.log('Found existing brand:', existingBrand);
-
-    // Update the brand's Stripe connect ID
-    const { error: updateError } = await supabase
-      .from('brands')
-      .update({ 
-        stripe_connect_id: connectedAccountId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id);
-
-    if (updateError) {
-      console.error('Error updating brand:', updateError);
-      console.error('Update details:', {
-        userId: user.id,
-        stripeAccountId: connectedAccountId,
-        errorCode: updateError.code,
-        errorMessage: updateError.message,
-        errorDetails: updateError.details
-      });
-
-      const errorUrl = '/dashboard/settings?error=update_failed'
-      return NextResponse.redirect(new URL(errorUrl, request.url));
-    }
-
-    console.log('Successfully updated brand with Stripe connect ID');
-
-    // Redirect back to standalone dashboard
-    return NextResponse.redirect(new URL('/dashboard/settings?success=stripe_connected', request.url))
+    // Redirect to dashboard with success message
+    return NextResponse.redirect(new URL('/dashboard?stripe_connect=pending', request.url))
   } catch (error) {
     console.error('Error in Stripe Connect callback:', error)
-    return NextResponse.redirect(new URL('/dashboard/settings?error=internal_error', request.url))
+    return NextResponse.redirect(new URL('/dashboard?error=stripe_connect_failed', request.url))
   }
 }
 
@@ -154,6 +102,51 @@ export async function POST(request: Request) {
     if (authError || !user) {
       console.error('Authentication error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if there's a pending Stripe account ID in cookies
+    const cookieStore = cookies()
+    const pendingAccountId = cookieStore.get('stripe_pending_account_id')?.value
+
+    // If there's a pending account ID, complete the connection
+    if (pendingAccountId) {
+      console.log('Found pending Stripe account ID:', pendingAccountId);
+      
+      // Get the brand by user_id
+      const { data: brandData, error: fetchError } = await supabase
+        .from('brands')
+        .select('id, stripe_connect_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (fetchError) {
+        console.error('Brand not found for user:', user.id, fetchError)
+        return NextResponse.json({ error: 'Brand not found' }, { status: 404 })
+      }
+
+      // Update the brand's Stripe connect ID
+      const { error: updateError } = await supabase
+        .from('brands')
+        .update({ 
+          stripe_connect_id: pendingAccountId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error updating brand with Stripe connect ID:', updateError);
+        return NextResponse.json({ error: 'Failed to update brand' }, { status: 500 })
+      }
+
+      // Clear the pending cookie
+      cookieStore.delete('stripe_pending_account_id');
+      
+      console.log('Successfully connected Stripe account:', pendingAccountId);
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Stripe account connected successfully',
+        stripe_connect_id: pendingAccountId
+      })
     }
 
     // Get the brand by user_id
