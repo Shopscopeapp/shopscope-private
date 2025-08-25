@@ -40,6 +40,8 @@ export default function PayoutsPage() {
   const [brandId, setBrandId] = useState<string | null>(null)
   const [stripeConnected, setStripeConnected] = useState(false)
   const [dateRange, setDateRange] = useState('90')
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
   
   const [stats, setStats] = useState({
     pendingAmount: 0,
@@ -103,9 +105,9 @@ export default function PayoutsPage() {
       startOfMonth.setHours(0, 0, 0, 0)
 
       const { data: monthlyOrders } = await supabase
-        .from('merchant_orders')
+        .from('orders')
         .select('total_amount, commission_amount')
-        .eq('merchant_id', brandData.id)
+        .eq('brand_id', brandData.id)
         .gte('created_at', startOfMonth.toISOString())
         .eq('status', 'completed')
 
@@ -140,6 +142,9 @@ export default function PayoutsPage() {
     if (!brandId || !stripeConnected || stats.pendingAmount < stats.minimumPayout) return
     
     setIsRequesting(true)
+    setSyncError(null)
+    setSyncMessage(null)
+    
     try {
       const response = await fetch('/api/payouts/request', {
         method: 'POST',
@@ -150,10 +155,13 @@ export default function PayoutsPage() {
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to request payout')
 
+      setSyncMessage(`Payout request submitted successfully! Amount: $${data.data.amount.toFixed(2)}`)
+      
       // Refresh data after requesting
       await fetchData()
     } catch (error) {
       console.error('Error requesting payout:', error)
+      setSyncError(error instanceof Error ? error.message : 'Failed to request payout')
     } finally {
       setIsRequesting(false)
     }
@@ -279,6 +287,19 @@ export default function PayoutsPage() {
       {/* Payout Request */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200 mb-8">
         <h3 className="text-lg font-semibold text-shopscope-black mb-4">Request Payout</h3>
+        
+        {syncMessage && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-700">{syncMessage}</p>
+          </div>
+        )}
+        
+        {syncError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-700">{syncError}</p>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between">
           <div>
             <p className="text-shopscope-gray-600 mb-2">
