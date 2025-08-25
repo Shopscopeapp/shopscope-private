@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { 
   ShieldCheckIcon,
   EyeIcon,
@@ -79,29 +80,65 @@ export default function SignupPage() {
 
     setLoading(true)
     try {
-      // Call the signup API
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          brandName: formData.brandName,
-          email: formData.email,
-          password: formData.password,
-          shopifyDomain: formData.shopifyDomain,
-          contactName: formData.contactName,
-          phone: formData.phone
-        })
+      // Use Supabase client directly for authentication
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            brand_name: formData.brandName,
+            contact_name: formData.contactName,
+            phone: formData.phone
+          }
+        }
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create account')
+      if (error) {
+        throw new Error(error.message || 'Failed to create account')
       }
 
-      console.log('Account created successfully:', result)
+      if (!data.user) {
+        throw new Error('Failed to create account - no user returned')
+      }
+
+      console.log('Account created successfully:', data)
+      
+      // Check if email confirmation is required
+      if (!data.session) {
+        // Email confirmation required
+        setErrors({ 
+          submit: 'Account created successfully! Please check your email and click the confirmation link before signing in.' 
+        })
+        setLoading(false)
+        return
+      }
+      
+      // Create brand record
+      const { error: brandError } = await supabase
+        .from('brands')
+        .insert({
+          name: formData.brandName,
+          contact_email: formData.email,
+          contact_phone: formData.phone || null,
+          shopify_domain: formData.shopifyDomain,
+          slug: formData.brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').substring(0, 50),
+          user_id: data.user.id,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+
+      if (brandError) {
+        console.error('Error creating brand:', brandError)
+        // Show warning but don't block the flow
+        setErrors({ 
+          submit: 'Account created successfully, but there was an issue creating your brand profile. Please contact support.' 
+        })
+        setLoading(false)
+        return
+      }
+      
+      console.log('Brand record created successfully')
       
       // Add a small delay to ensure session is properly established
       await new Promise(resolve => setTimeout(resolve, 1000))

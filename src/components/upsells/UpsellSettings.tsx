@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 
 interface UpsellSettings {
   notification_frequency: number // hours
@@ -27,7 +27,7 @@ export default function UpsellSettings({ brandId }: UpsellSettingsProps) {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const supabase = createClientComponentClient()
+
 
   useEffect(() => {
     const loadSettings = async () => {

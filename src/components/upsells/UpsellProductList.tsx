@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import Image from 'next/image'
 
 interface Product {
   id: string
   title: string
   price: number
-  image_url: string
+  image_url?: string
+  images?: Array<{ src: string; alt?: string }>
   upsell_status: 'active' | 'inactive'
   upsell_type: 'notification' | 'wishlist' | 'discount'
   discount_amount?: number
@@ -24,7 +25,7 @@ export default function UpsellProductList({ brandId }: UpsellProductListProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [credits, setCredits] = useState(0)
-  const supabase = createClientComponentClient()
+
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -211,11 +212,11 @@ export default function UpsellProductList({ brandId }: UpsellProductListProps) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0">
-                          {product.image_url ? (
+                          {product.images && product.images.length > 0 && product.images[0]?.src ? (
                             <Image
                               className="h-10 w-10 rounded-full object-cover"
-                              src={product.image_url.replace(/['"]+/g, '')}
-                              alt={product.title}
+                              src={product.images[0].src}
+                              alt={product.images[0].alt || product.title}
                               width={40}
                               height={40}
                               placeholder="blur"
@@ -302,11 +303,11 @@ export default function UpsellProductList({ brandId }: UpsellProductListProps) {
               <div key={product.id} className="p-4 space-y-3">
                 <div className="flex items-center space-x-3">
                   <div className="h-12 w-12 flex-shrink-0">
-                    {product.image_url ? (
+                    {product.images && product.images.length > 0 && product.images[0]?.src ? (
                       <Image
                         className="h-12 w-12 rounded-lg object-cover"
-                        src={product.image_url.replace(/['"]+/g, '')}
-                        alt={product.title}
+                        src={product.images[0].src}
+                        alt={product.images[0].alt || product.title}
                         width={48}
                         height={48}
                         placeholder="blur"

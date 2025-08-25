@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   Cog6ToothIcon,
   LinkIcon,
@@ -17,7 +17,8 @@ import {
   TrashIcon,
   PencilIcon,
   EyeIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
+  TruckIcon
 } from '@heroicons/react/24/outline'
 
 interface BrandSettings {
@@ -37,8 +38,30 @@ interface BrandSettings {
   }
 }
 
+interface ShippingZone {
+  id: string
+  name: string
+  countries: string[]
+  provinces: string[]
+  created_at: string
+  updated_at: string
+}
+
+interface ShippingRate {
+  id: string
+  name: string
+  price: number
+  min_order_amount?: number
+  max_order_amount?: number
+  min_weight?: number
+  max_weight?: number
+  zone_id: string
+  created_at: string
+  updated_at: string
+}
+
 export default function SettingsPage() {
-  const supabase = createClientComponentClient()
+
   const [settings, setSettings] = useState<BrandSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setSaving] = useState(false)
@@ -46,6 +69,9 @@ export default function SettingsPage() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [isConnectingStripe, setIsConnectingStripe] = useState(false)
   const [isSyncingShipping, setIsSyncingShipping] = useState(false)
+  const [shippingZones, setShippingZones] = useState<ShippingZone[]>([])
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -61,6 +87,53 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'shipping' && settings?.id) {
+      fetchShippingData()
+    }
+  }, [activeTab, settings?.id])
+
+  const fetchShippingData = async () => {
+    if (activeTab !== 'shipping') return
+    
+    setIsLoadingShipping(true)
+    try {
+      console.log('Fetching shipping data for brand:', settings?.id)
+      
+      // Fetch shipping zones
+      const { data: zones, error: zonesError } = await supabase
+        .from('shipping_zones')
+        .select('*')
+        .eq('brand_id', settings?.id)
+
+      if (zonesError) {
+        console.error('Error fetching zones:', zonesError)
+        throw zonesError
+      }
+
+      console.log('Fetched zones:', zones)
+
+      // Fetch shipping rates
+      const { data: rates, error: ratesError } = await supabase
+        .from('shipping_rates')
+        .select('*')
+
+      if (ratesError) {
+        console.error('Error fetching rates:', ratesError)
+        throw ratesError
+      }
+
+      console.log('Fetched rates:', rates)
+
+      setShippingZones(zones || [])
+      setShippingRates(rates || [])
+    } catch (error) {
+      console.error('Error fetching shipping data:', error)
+    } finally {
+      setIsLoadingShipping(false)
+    }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -214,6 +287,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'general', name: 'General', icon: UserIcon },
     { id: 'integrations', name: 'Integrations', icon: LinkIcon },
+    { id: 'shipping', name: 'Shipping', icon: TruckIcon },
     { id: 'notifications', name: 'Notifications', icon: BellIcon },
     { id: 'security', name: 'Security', icon: ShieldCheckIcon }
   ]
@@ -227,6 +301,11 @@ export default function SettingsPage() {
         </div>
       </div>
     )
+  }
+
+  // Group rates by zone for display
+  const getRatesForZone = (zoneId: string) => {
+    return shippingRates.filter(rate => rate.zone_id === zoneId)
   }
 
   return (
@@ -506,6 +585,242 @@ export default function SettingsPage() {
                       Test Connection
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'shipping' && (
+            <div className="space-y-6">
+              {/* Shipping Overview */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <TruckIcon className="w-8 h-8 text-shopscope-black mr-3" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-shopscope-black">Shipping Zones & Rates</h3>
+                      <p className="text-sm text-shopscope-gray-600">Manage your shipping configuration for mobile orders</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSyncShipping}
+                    disabled={isSyncingShipping}
+                    className="btn-secondary disabled:opacity-50"
+                  >
+                    <ArrowPathIcon className={`w-4 h-4 mr-2 ${isSyncingShipping ? 'animate-spin' : ''}`} />
+                    {isSyncingShipping ? 'Syncing...' : 'Sync from Shopify'}
+                  </button>
+                </div>
+
+                {settings?.shopify_connected ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="font-medium text-blue-900 mb-2">Shipping Sync Status</h4>
+                      <div className="text-sm text-blue-800">
+                        <p><strong>Last Sync:</strong> {shippingZones.length > 0 ? 'Recently synced' : 'Never synced'}</p>
+                        <p><strong>Source:</strong> Shopify store shipping zones</p>
+                        <p><strong>Auto-sync:</strong> Enabled (updates when shipping changes in Shopify)</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <h4 className="font-medium text-green-900 mb-2">Mobile Order Shipping</h4>
+                      <div className="text-sm text-green-800">
+                        <p>Your Shopify shipping zones and rates are automatically applied to mobile orders.</p>
+                        <p className="mt-1">Customers will see the same shipping options they see in your Shopify store.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleSyncShipping}
+                        disabled={isSyncingShipping}
+                        className="btn-primary disabled:opacity-50"
+                      >
+                        <ArrowPathIcon className={`w-4 h-4 mr-2 ${isSyncingShipping ? 'animate-spin' : ''}`} />
+                        {isSyncingShipping ? 'Syncing Shipping...' : 'Sync Shipping Now'}
+                      </button>
+                      <button 
+                        onClick={fetchShippingData}
+                        disabled={isLoadingShipping}
+                        className="btn-outline"
+                      >
+                        <ArrowPathIcon className={`w-4 h-4 mr-2 ${isLoadingShipping ? 'animate-spin' : ''}`} />
+                        Refresh Data
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <p className="text-sm text-yellow-800 mb-3">
+                      Connect your Shopify store to sync shipping zones and rates for mobile orders.
+                    </p>
+                    <button className="btn-primary">
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      Connect Shopify Store
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Shipping Rates Display */}
+              {shippingRates.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Shipping Rates</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {shippingRates.map((rate) => (
+                      <div key={rate.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">{rate.name}</h4>
+                          <span className="text-lg font-bold text-shopscope-black">
+                            ${rate.price.toFixed(2)}
+                          </span>
+                        </div>
+                        {rate.min_order_amount && rate.min_order_amount > 0 && (
+                          <p className="text-sm text-gray-600">
+                            Min order: ${rate.min_order_amount.toFixed(2)}
+                          </p>
+                        )}
+                        {rate.max_order_amount && (
+                          <p className="text-sm text-gray-600">
+                            Max order: ${rate.max_order_amount.toFixed(2)}
+                          </p>
+                        )}
+                        {rate.price === 0 && (
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                            Free Shipping
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Shipping Configuration */}
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Shipping Configuration</h3>
+                
+                {/* Domestic Shipping */}
+                <div className="mb-6">
+                  <h4 className="font-medium text-gray-900 mb-3">Domestic Shipping (Australia)</h4>
+                  <div className="space-y-2">
+                    {getRatesForZone('27aab88d-2dd3-44a5-8404-bc0c86686c2c').map((rate) => (
+                      <div key={rate.id} className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-700">{rate.name}</span>
+                        <span className="font-medium">
+                          {rate.price === 0 ? 'Free' : `$${rate.price.toFixed(2)}`}
+                          {rate.min_order_amount && rate.min_order_amount > 0 && 
+                            ` (over $${rate.min_order_amount.toFixed(2)})`
+                          }
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* International Shipping */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">International Shipping</h4>
+                  <div className="space-y-2">
+                    {getRatesForZone('d5f6da16-2bd5-458b-a7c6-62ab9699249d').map((rate) => (
+                      <div key={rate.id} className="flex items-center justify-between py-2 border-b">
+                        <span className="text-gray-700">{rate.name}</span>
+                        <span className="font-medium">${rate.price.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Shipping Zones Table */}
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
+                <h3 className="text-lg font-semibold text-shopscope-black mb-4">Current Shipping Zones</h3>
+                
+                {isLoadingShipping ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-shopscope-black"></div>
+                    <span className="ml-3 text-shopscope-gray-600">Loading shipping data...</span>
+                  </div>
+                ) : shippingZones.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-shopscope-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
+                            Zone Name
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
+                            Countries
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
+                            Shipping Methods
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-shopscope-gray-200">
+                        {shippingZones.map((zone) => {
+                          const zoneRates = shippingRates.filter(rate => rate.zone_id === zone.id)
+                          return (
+                            <tr key={zone.id} className="hover:bg-shopscope-gray-50">
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="font-medium text-shopscope-black">{zone.name}</div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="text-sm text-shopscope-gray-600">
+                                  {zone.countries.length > 0 ? `${zone.countries.length} countries` : 'Not specified'}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <div className="text-sm text-shopscope-gray-600">
+                                  {zoneRates.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {zoneRates.map(rate => (
+                                        <div key={rate.id} className="flex items-center justify-between">
+                                          <span>{rate.name}</span>
+                                          <span className="font-medium text-shopscope-black">${rate.price.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    'No rates configured'
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <TruckIcon className="w-12 h-12 text-shopscope-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-shopscope-black mb-2">No shipping zones found</h3>
+                    <p className="text-shopscope-gray-600 mb-4">
+                      Sync your shipping configuration from Shopify to see your shipping zones and rates here.
+                    </p>
+                    <button
+                      onClick={handleSyncShipping}
+                      disabled={isSyncingShipping}
+                      className="btn-primary disabled:opacity-50"
+                    >
+                      <ArrowPathIcon className={`w-4 h-4 mr-2 ${isSyncingShipping ? 'animate-spin' : ''}`} />
+                      {isSyncingShipping ? 'Syncing...' : 'Sync Shipping'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-4 text-sm text-shopscope-gray-600">
+                  <p>Note: Shipping zones are automatically synced from your Shopify store. To modify shipping rates, update them in your Shopify admin.</p>
                 </div>
               </div>
             </div>

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   HomeIcon,
   ShoppingBagIcon,
@@ -36,9 +36,66 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        // Add a small delay to give session time to establish after login
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // First try to get the current user
+        let { data: { user }, error } = await supabase.auth.getUser()
+        console.log('getUser result:', { user: user?.email, error })
+        
+        if (error || !user) {
+          // Try to refresh the session
+          const { data: { session }, error: refreshError } = await supabase.auth.getSession()
+          console.log('getSession result:', { session: session?.user?.email, error: refreshError })
+          
+          if (refreshError || !session?.user) {
+            console.log('No valid session found, redirecting to login')
+            // Add a small delay before redirecting to give session time to establish
+            setTimeout(() => {
+              router.push('/auth/login')
+            }, 1000)
+            return
+          }
+          
+          user = session.user
+        }
+        
+        setUser(user)
+        setIsLoading(false)
+        
+        // Set up session listener to handle auth state changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state change:', event, session?.user?.email)
+            if (event === 'SIGNED_OUT') {
+              router.push('/auth/login')
+            } else if (session?.user) {
+              setUser(session.user)
+            }
+          }
+        )
+        
+        return () => subscription.unsubscribe()
+      } catch (error) {
+        console.error('Error checking user:', error)
+        // Add a small delay before redirecting
+        setTimeout(() => {
+          router.push('/auth/login')
+        }, 1000)
+      }
+    }
+
+    checkUser()
+  }, [router])
+
 
   const handleSignOut = async () => {
     try {
@@ -47,6 +104,33 @@ export default function DashboardLayout({
     } catch (error) {
       console.error('Error signing out:', error)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-shopscope-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-shopscope-black mb-4" />
+          <p className="text-shopscope-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-shopscope-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-shopscope-gray-600">Please log in to continue</p>
+          <button 
+            onClick={() => window.location.href = '/auth/login'}
+            className="mt-4 bg-shopscope-black text-white px-4 py-2 rounded-lg hover:bg-shopscope-gray-800"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (

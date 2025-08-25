@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   ChartBarIcon,
   EyeIcon,
@@ -35,7 +35,7 @@ interface ProductMetrics {
 }
 
 export default function AnalyticsPage() {
-  const supabase = createClientComponentClient()
+
   const [isLoading, setIsLoading] = useState(true)
   const [dateRange, setDateRange] = useState('30')
   const [brandId, setBrandId] = useState<string | null>(null)

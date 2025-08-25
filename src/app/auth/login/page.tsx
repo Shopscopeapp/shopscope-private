@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { 
   LockClosedIcon,
   EyeIcon,
@@ -56,25 +57,24 @@ export default function LoginPage() {
 
     setLoading(true)
     try {
-      // Call the login API
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
+      // Use Supabase client directly for authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed')
+      if (error) {
+        throw new Error(error.message || 'Login failed')
       }
 
-      console.log('Login successful:', result)
+      if (!data.user) {
+        throw new Error('Login failed - no user returned')
+      }
+
+      console.log('Login successful:', data)
+      
+      // Add a small delay to ensure session is established
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
       // Redirect to dashboard
       window.location.href = '/dashboard'

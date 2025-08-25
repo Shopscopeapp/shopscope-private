@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   ShoppingCartIcon,
   MagnifyingGlassIcon,
@@ -48,7 +48,7 @@ const fulfillmentColors = {
 }
 
 export default function OrdersPage() {
-  const supabase = createClientComponentClient()
+
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   BanknotesIcon,
   ClockIcon,
@@ -33,7 +33,7 @@ const statusColors = {
 }
 
 export default function PayoutsPage() {
-  const supabase = createClientComponentClient()
+
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRequesting, setIsRequesting] = useState(false)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import { 
   ShoppingBagIcon,
   ChartBarIcon,
@@ -82,7 +82,6 @@ const SetupChecklist = ({ hasProducts, hasShipping, hasStripeConnected, hasShopi
     setSyncMessage(null)
     
     try {
-      const supabase = createClientComponentClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
@@ -377,7 +376,6 @@ const AlertBanner = ({
 )
 
 export default function DashboardPage() {
-  const supabase = createClientComponentClient()
   const [brandProfile, setBrandProfile] = useState<BrandProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -408,14 +406,21 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboardData() {
       try {
-        // Get user directly from Supabase
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        // First try to get the current user
+        let { data: { user }, error: userError } = await supabase.auth.getUser()
         
         if (userError || !user) {
-          console.error('Authentication failed:', userError)
-          setAuthError('Not authenticated. Please sign in.')
-          setIsLoading(false)
-          return
+          // Try to refresh the session
+          const { data: { session }, error: refreshError } = await supabase.auth.getSession()
+          
+          if (refreshError || !session?.user) {
+            console.error('Authentication failed:', userError)
+            setAuthError('Not authenticated. Please sign in.')
+            setIsLoading(false)
+            return
+          }
+          
+          user = session.user
         }
 
         console.log('✅ User authenticated:', user.email)
@@ -666,6 +671,17 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData()
+
+    // Set up session refresh every 5 minutes
+    const sessionRefreshInterval = setInterval(async () => {
+      try {
+        await supabase.auth.refreshSession()
+      } catch (error) {
+        console.error('Error refreshing session:', error)
+      }
+    }, 5 * 60 * 1000) // 5 minutes
+
+    return () => clearInterval(sessionRefreshInterval)
   }, [])
 
   // Check shipping zones whenever brand profile changes

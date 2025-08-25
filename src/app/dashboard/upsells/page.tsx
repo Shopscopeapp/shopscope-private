@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import UpsellStats from '@/components/upsells/UpsellStats'
 import UpsellProductList from '@/components/upsells/UpsellProductList'
 import UpsellSettings from '@/components/upsells/UpsellSettings'
@@ -18,7 +18,7 @@ export default function UpsellsPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'products' | 'settings'>('products')
 
-  const supabase = createClientComponentClient()
+
 
   useEffect(() => {
     const loadUpsellStats = async () => {

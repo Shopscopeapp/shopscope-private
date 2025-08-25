@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import {
   TagIcon,
   PlusIcon,
@@ -43,7 +43,7 @@ const statusColors = {
 }
 
 export default function DiscountsPage() {
-  const supabase = createClientComponentClient()
+
   const [discounts, setDiscounts] = useState<Discount[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
