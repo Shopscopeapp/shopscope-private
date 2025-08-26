@@ -121,16 +121,22 @@ export async function POST(req: Request) {
       source_url: order.source_url
     })
 
-    // Check if this order came from ShopScope
-    const isShopScopeOrder = order.source_name === 'shopscope' || 
+    // Check if this order came from ShopScope app
+    // Shopify puts the app ID in source_name and app_id fields when order comes through our app
+    const shopScopeAppId = '276079869953' // Your ShopScope app ID
+    const isShopScopeOrder = order.app_id?.toString() === shopScopeAppId || 
+                            order.source_name === shopScopeAppId ||
+                            order.source_name === 'shopscope' || // Fallback for text-based identification
                             order.referring_site?.includes('shopscope') ||
                             order.source_url?.includes('shopscope') ||
                             order.source_identifier?.includes('shopscope')
 
     if (!isShopScopeOrder) {
-      console.log('⏭️ Skipping non-ShopScope order')
+      console.log('⏭️ Skipping non-ShopScope order. App ID:', order.app_id, 'Source name:', order.source_name)
       return new NextResponse('OK', { status: 200 })
     }
+
+    console.log('✅ Order identified as ShopScope order')
 
 
 
