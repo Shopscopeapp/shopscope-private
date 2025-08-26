@@ -27,6 +27,7 @@ export default function ConnectShopifyPage() {
     'write_products',
     'read_orders',
     'write_orders',
+    'read_customers',
     'read_inventory',
     'write_inventory',
     'read_fulfillments',
@@ -243,6 +244,19 @@ export default function ConnectShopifyPage() {
                         <h3 className="font-semibold text-yellow-800 mb-1">Important</h3>
                         <p className="text-sm text-yellow-700">
                           Make sure to add ALL the permissions listed below for full functionality.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <ExclamationTriangleIcon className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-semibold text-blue-800 mb-1">Critical Permission</h3>
+                        <p className="text-sm text-blue-700">
+                          <strong>read_customers</strong> is required for order processing and customer data access. 
+                          Without this permission, you'll get API errors when syncing orders.
                         </p>
                       </div>
                     </div>

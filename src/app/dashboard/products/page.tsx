@@ -3,6 +3,113 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getAIStatus, checkAIServiceHealth } from '@/lib/ai-integration'
+
+// Product Variants Details Component
+function ProductVariantsDetails({ productId }: { productId: string }) {
+  const [variants, setVariants] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchVariants = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('product_variants')
+          .select('*')
+          .eq('product_id', productId)
+          .order('price', { ascending: true })
+
+        if (error) throw error
+        setVariants(data || [])
+      } catch (error) {
+        console.error('Error fetching variants:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchVariants()
+  }, [productId])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-shopscope-black" />
+      </div>
+    )
+  }
+
+  if (variants.length === 0) {
+    return (
+      <div className="text-center py-4 text-sm text-shopscope-gray-500">
+        No variants found
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <h4 className="font-medium text-shopscope-black">Product Variants</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {variants.map((variant) => (
+          <div key={variant.id} className="bg-white p-4 rounded-lg border border-shopscope-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="font-medium text-shopscope-black">{variant.title}</h5>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                variant.inventory_quantity > 0 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {variant.inventory_quantity > 0 ? 'In Stock' : 'Out of Stock'}
+              </span>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              {variant.sku && (
+                <div className="text-shopscope-gray-600">
+                  <span className="font-medium">SKU:</span> {variant.sku}
+                </div>
+              )}
+              
+              {variant.size && (
+                <div className="text-shopscope-gray-600">
+                  <span className="font-medium">Size:</span> {variant.size}
+                </div>
+              )}
+              
+              {variant.option1_name && variant.option1_value && (
+                <div className="text-shopscope-gray-600">
+                  <span className="font-medium">{variant.option1_name}:</span> {variant.option1_value}
+                </div>
+              )}
+              
+              {variant.option2_name && variant.option2_value && (
+                <div className="text-shopscope-gray-600">
+                  <span className="font-medium">{variant.option2_name}:</span> {variant.option2_value}
+                </div>
+              )}
+              
+              {variant.option3_name && variant.option3_value && (
+                <div className="text-shopscope-gray-600">
+                  <span className="font-medium">{variant.option3_name}:</span> {variant.option3_value}
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between pt-2 border-t border-shopscope-gray-100">
+                <div className="text-shopscope-black font-medium">
+                  ${parseFloat(variant.price).toFixed(2)}
+                </div>
+                <div className="text-shopscope-gray-500">
+                  Stock: {variant.inventory_quantity}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 import {
   ShoppingBagIcon,
   PlusIcon,
@@ -37,6 +144,8 @@ interface Product {
   inventory_count?: number
   category?: string
   brand?: string
+  variant_count?: number
+  variant_sizes?: string[]
 }
 
 export default function ProductsPage() {
@@ -48,6 +157,7 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('updated_at')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [expandedProducts, setExpandedProducts] = useState<string[]>([])
   const [brandId, setBrandId] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [stats, setStats] = useState({
@@ -94,9 +204,45 @@ export default function ProductsPage() {
 
       if (productsError) throw productsError
 
+      // Get variant information for each product
+      const productsWithVariants = await Promise.all(
+        (productsData || []).map(async (product) => {
+          const { data: variants, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('size, option1_value, option1, option2_value')
+            .eq('product_id', product.id)
+
+          if (variantsError) {
+            console.error('Error fetching variants:', variantsError)
+            return { ...product, variant_count: 0, variant_sizes: [] }
+          }
+
+          const variantSizes = variants
+            ?.map(v => v.size || v.option1_value || v.option1)
+            .filter(Boolean)
+            .filter((size, index, arr) => arr.indexOf(size) === index) // Remove duplicates
+
+          // Debug logging for size extraction
+          console.log(`Product ${product.title} variants:`, variants?.map(v => ({
+            size: v.size,
+            option1_value: v.option1_value,
+            option1: v.option1,
+            extracted_sizes: variantSizes
+          })))
+
+          return {
+            ...product,
+            variant_count: variants?.length || 0,
+            variant_sizes: variantSizes || []
+          }
+        })
+      )
+
+      if (productsError) throw productsError
+
       // Get engagement data for each product
       const productsWithEngagement = await Promise.all(
-        (productsData || []).map(async (product) => {
+        productsWithVariants.map(async (product) => {
           // Get analytics events
           const { data: events } = await supabase
             .from('brand_analytics_events')
@@ -111,11 +257,11 @@ export default function ProductsPage() {
             .select('quantity, total_price')
             .eq('product_id', product.id)
 
-                     // Note: We'll use the existing views_count and likes_count from the database
-           // For now, we'll skip the complex analytics calculation
-           return {
-             ...product
-           }
+          // Note: We'll use the existing views_count and likes_count from the database
+          // For now, we'll skip the complex analytics calculation
+          return {
+            ...product
+          }
         })
       )
 
@@ -216,6 +362,14 @@ export default function ProductsPage() {
     } catch (error) {
       console.error('Error updating product statuses:', error)
     }
+  }
+
+  const toggleProductExpansion = (productId: string) => {
+    setExpandedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    )
   }
 
   const fetchAIStatus = async () => {
@@ -358,7 +512,7 @@ export default function ProductsPage() {
               {aiStatus ? aiStatus.embedding_coverage || '0%' : 
                aiServiceHealth?.status === 'unhealthy' ? 'N/A' : 'Loading...'}
             </p>
-          </div>
+        </div>
         </div>
 
         {aiServiceHealth?.status === 'unhealthy' ? (
@@ -520,6 +674,9 @@ export default function ProductsPage() {
                     Price
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
+                    Variants
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
                     Mobile Engagement
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-shopscope-gray-500 uppercase tracking-wider">
@@ -549,17 +706,17 @@ export default function ProductsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                                                 <div className="w-12 h-12 bg-shopscope-gray-100 rounded-lg flex items-center justify-center mr-4">
+                        <div className="w-12 h-12 bg-shopscope-gray-100 rounded-lg flex items-center justify-center mr-4">
                            {product.images && product.images.length > 0 && product.images[0]?.src ? (
-                             <img
+                            <img
                                src={product.images[0].src}
                                alt={product.images[0].alt || product.title}
-                               className="w-full h-full object-cover rounded-lg"
-                             />
-                           ) : (
-                             <ShoppingBagIcon className="w-6 h-6 text-shopscope-gray-400" />
-                           )}
-                         </div>
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <ShoppingBagIcon className="w-6 h-6 text-shopscope-gray-400" />
+                          )}
+                        </div>
                         <div>
                           <div className="font-medium text-shopscope-black">{product.title}</div>
                           <div className="text-sm text-shopscope-gray-500">
@@ -588,28 +745,41 @@ export default function ProductsPage() {
                         ${product.price.toFixed(2)}
                       </div>
                                              {product.sale_price && product.sale_price > product.price && (
-                         <div className="text-sm text-shopscope-gray-500 line-through">
+                        <div className="text-sm text-shopscope-gray-500 line-through">
                            ${product.sale_price.toFixed(2)}
-                         </div>
-                       )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-4">
-                                                 <div className="flex items-center text-sm text-shopscope-gray-600">
-                           <EyeIcon className="w-4 h-4 mr-1" />
-                           {product.views_count || 0}
-                         </div>
-                         <div className="flex items-center text-sm text-shopscope-gray-600">
-                           <HeartIcon className="w-4 h-4 mr-1" />
-                           {product.likes_count || 0}
-                         </div>
+                      <div className="text-sm text-shopscope-gray-600">
+                        <div className="font-medium">{product.variant_count || 0} variants</div>
+                        {product.variant_count > 0 && (
+                          <button
+                            onClick={() => toggleProductExpansion(product.id)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                          >
+                            {expandedProducts.includes(product.id) ? 'Hide details' : 'Show details'}
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                                             <div className="text-shopscope-black font-medium">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center text-sm text-shopscope-gray-600">
+                          <EyeIcon className="w-4 h-4 mr-1" />
+                           {product.views_count || 0}
+                        </div>
+                        <div className="flex items-center text-sm text-shopscope-gray-600">
+                          <HeartIcon className="w-4 h-4 mr-1" />
+                           {product.likes_count || 0}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-shopscope-black font-medium">
                          {/* Sales data not available in current schema */}
                          No sales data
-                       </div>
+                        </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
@@ -623,6 +793,17 @@ export default function ProductsPage() {
                     </td>
                   </tr>
                 ))}
+                
+                {/* Expanded Variant Details Rows */}
+                {filteredProducts.map((product) => 
+                  expandedProducts.includes(product.id) && product.variant_count > 0 ? (
+                    <tr key={`${product.id}-variants`} className="bg-gray-50">
+                      <td colSpan={8} className="px-6 py-4">
+                        <ProductVariantsDetails productId={product.id} />
+                      </td>
+                    </tr>
+                  ) : null
+                )}
               </tbody>
             </table>
           </div>

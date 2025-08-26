@@ -77,3 +77,6 @@ CREATE POLICY "Brands can insert their own payouts"
 CREATE INDEX IF NOT EXISTS payouts_brand_id_idx ON public.payouts(brand_id);
 CREATE INDEX IF NOT EXISTS payouts_status_idx ON public.payouts(status);
 CREATE INDEX IF NOT EXISTS payouts_created_at_idx ON public.payouts(created_at);
+
+
+

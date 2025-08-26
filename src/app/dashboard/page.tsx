@@ -179,6 +179,14 @@ const SetupChecklist = ({ hasProducts, hasShipping, hasStripeConnected, hasShopi
       
       <div className="space-y-3">
         <ChecklistItem
+          completed={hasShopifyConnected}
+          title="Connect Shopify"
+          description="Sync orders & inventory"
+          href="/auth/connect-shopify"
+          icon={<LinkIcon className="w-4 h-4" />}
+        />
+        
+        <ChecklistItem
           completed={hasProducts}
           title="Sync Products"
           description="Import products from Shopify"
@@ -193,14 +201,6 @@ const SetupChecklist = ({ hasProducts, hasShipping, hasStripeConnected, hasShopi
           href="/dashboard/settings"
           onClick={!hasShipping ? handleSyncShipping : undefined}
           isLoading={isSyncing}
-          icon={<LinkIcon className="w-4 h-4" />}
-        />
-        
-        <ChecklistItem
-          completed={hasShopifyConnected}
-          title="Connect Shopify"
-          description="Sync orders & inventory"
-          href="/auth/connect-shopify"
           icon={<LinkIcon className="w-4 h-4" />}
         />
         

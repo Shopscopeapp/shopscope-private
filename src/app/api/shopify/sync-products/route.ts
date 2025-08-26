@@ -57,8 +57,8 @@ async function syncProductsToDatabase(brandId: string, shopifyProducts: any[]) {
         tags: product.tags ? product.tags.split(',').map((tag: string) => tag.trim()) : [],
         price: product.variants?.[0]?.price ? parseFloat(product.variants[0].price) : 0,
         sale_price: product.variants?.[0]?.compare_at_price ? parseFloat(product.variants[0].compare_at_price) : null,
-        inventory_count: product.variants?.[0]?.inventory_quantity || 0,
-        images: product.images || [],
+        inventory_count: product.variants.reduce((sum, v) => sum + (v.inventory_quantity || 0), 0),
+        images: product.images && product.images.length > 0 ? product.images : undefined, // Only update if images exist
         metadata: {
           handle: product.handle,
           product_type: product.product_type,
@@ -68,32 +68,52 @@ async function syncProductsToDatabase(brandId: string, shopifyProducts: any[]) {
         updated_at: new Date().toISOString()
       };
 
+      let productId: string;
+
       if (existingProduct) {
+        // For existing products, only update images if new ones are provided
+        const updateData = { ...productData };
+        if (!product.images || product.images.length === 0) {
+          delete updateData.images; // Don't overwrite existing images
+        }
+        
         // Update existing product
         const { error: updateError } = await supabaseAdmin
           .from('products')
-          .update(productData)
+          .update(updateData)
           .eq('id', existingProduct.id);
 
         if (updateError) {
           console.error('Error updating product:', updateError);
           errorCount++;
+          continue;
         } else {
           updatedCount++;
+          productId = existingProduct.id;
         }
       } else {
         // Insert new product
-        const { error: insertError } = await supabaseAdmin
+        const { data: newProduct, error: insertError } = await supabaseAdmin
           .from('products')
-          .insert(productData);
+          .insert(productData)
+          .select('id')
+          .single();
 
         if (insertError) {
           console.error('Error inserting product:', insertError);
           errorCount++;
+          continue;
         } else {
           syncedCount++;
+          productId = newProduct.id;
         }
       }
+
+      // Sync product variants
+      if (productId && product.variants && product.variants.length > 0) {
+        await syncProductVariants(product.variants, productId, supabaseAdmin);
+      }
+
     } catch (error) {
       console.error('Error processing product:', error);
       errorCount++;
@@ -106,6 +126,102 @@ async function syncProductsToDatabase(brandId: string, shopifyProducts: any[]) {
     errorCount,
     totalProcessed: shopifyProducts.length
   };
+}
+
+async function syncProductVariants(variants: any[], productId: string, supabase: any) {
+  let variantSyncedCount = 0;
+  let variantUpdatedCount = 0;
+  let variantErrorCount = 0;
+
+  for (const variant of variants) {
+    try {
+      // Extract size from multiple possible sources and standardize it
+      let size = null;
+      if (variant.size) {
+        size = variant.size;
+      } else if (variant.option1_value) {
+        size = variant.option1_value;
+      } else if (variant.option1) {
+        size = variant.option1;
+      } else if (variant.title && variant.title !== variant.product_title) {
+        // If title is different from product title, it's likely a size
+        size = variant.title;
+      }
+      
+      // Set option names and values
+      const option1Name = variant.option1_name || 'Size';
+      const option1Value = variant.option1_value || variant.option1 || size;
+      const option2Name = variant.option2_name || null;
+      const option2Value = variant.option2_value || null;
+      const option3Name = variant.option3_name || null;
+      const option3Value = variant.option3_value || null;
+      
+      // Log size extraction for debugging
+      console.log(`Variant ${variant.title}: extracted size="${size}" from:`, {
+        variant_size: variant.size,
+        option1_value: variant.option1_value,
+        option1: variant.option1,
+        title: variant.title
+      });
+
+      // Check if variant already exists
+      const { data: existingVariant } = await supabase
+        .from('product_variants')
+        .select('id')
+        .eq('shopify_variant_id', variant.id.toString())
+        .single();
+
+      const variantData = {
+        product_id: productId,
+        shopify_variant_id: variant.id.toString(),
+        title: variant.title,
+        sku: variant.sku,
+        price: variant.price ? parseFloat(variant.price) : 0,
+        compare_at_price: variant.compare_at_price ? parseFloat(variant.compare_at_price) : null,
+        inventory_quantity: variant.inventory_quantity || 0,
+        size: size,
+        option1_name: option1Name,
+        option1_value: option1Value,
+        option2_name: option2Name,
+        option2_value: option2Value,
+        option3_name: option3Name,
+        option3_value: option3Value,
+        updated_at: new Date().toISOString()
+      };
+
+      if (existingVariant) {
+        // Update existing variant
+        const { error: updateError } = await supabase
+          .from('product_variants')
+          .update(variantData)
+          .eq('id', existingVariant.id);
+
+        if (updateError) {
+          console.error('Error updating variant:', updateError);
+          variantErrorCount++;
+        } else {
+          variantUpdatedCount++;
+        }
+      } else {
+        // Insert new variant
+        const { error: insertError } = await supabase
+          .from('product_variants')
+          .insert(variantData);
+
+        if (insertError) {
+          console.error('Error inserting variant:', insertError);
+          variantErrorCount++;
+        } else {
+          variantSyncedCount++;
+        }
+      }
+    } catch (error) {
+      console.error('Error processing variant:', error);
+      variantErrorCount++;
+    }
+  }
+
+  console.log(`Variants synced: ${variantSyncedCount} new, ${variantUpdatedCount} updated, ${variantErrorCount} errors`);
 }
 
 export async function POST(request: Request) {

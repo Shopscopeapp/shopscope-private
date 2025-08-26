@@ -22,9 +22,9 @@ export default function UpsellsPage() {
 
   useEffect(() => {
     const loadUpsellStats = async () => {
-      try {
+    try {
         // Get user
-        const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           setError('Please sign in to view upsells')
           setIsLoading(false)
@@ -32,11 +32,11 @@ export default function UpsellsPage() {
         }
 
         // Get brand by user_id
-        const { data: brandData, error: brandError } = await supabase
-          .from('brands')
-          .select('id')
-          .eq('user_id', user.id)
-          .single()
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
 
         if (brandError || !brandData) {
           console.error('❌ Brand not found for user:', user.id)
@@ -45,13 +45,13 @@ export default function UpsellsPage() {
           return
         }
 
-        setBrandId(brandData.id)
+      setBrandId(brandData.id)
 
         // Try to get upsell stats
         const { data, error } = await supabase
           .from('upsell_stats')
-          .select('*')
-          .eq('brand_id', brandData.id)
+        .select('*')
+        .eq('brand_id', brandData.id)
           .single()
 
         if (error) {
@@ -68,20 +68,20 @@ export default function UpsellsPage() {
         }
 
         if (data) {
-          setStats({
+      setStats({
             totalUpsells: data.total_upsells || 0,
             conversionRate: data.conversion_rate || 0,
             revenue: data.revenue || 0,
             activePromotions: data.active_promotions || 0
           })
         }
-      } catch (error) {
+    } catch (error) {
         console.error('Error loading upsell stats:', error)
         setError('Failed to load upsell stats')
       } finally {
-        setIsLoading(false)
-      }
+      setIsLoading(false)
     }
+  }
 
     loadUpsellStats()
   }, [supabase])
@@ -128,7 +128,7 @@ export default function UpsellsPage() {
       <div className="bg-white rounded-lg shadow-sm border border-shopscope-gray-200">
         <div className="border-b border-shopscope-gray-200">
           <nav className="-mb-px flex space-x-8 px-6">
-            <button
+                        <button
               onClick={() => setActiveTab('products')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'products'
@@ -137,8 +137,8 @@ export default function UpsellsPage() {
               }`}
             >
               Products
-            </button>
-            <button
+                        </button>
+                        <button
               onClick={() => setActiveTab('settings')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'settings'
@@ -147,9 +147,9 @@ export default function UpsellsPage() {
               }`}
             >
               Settings
-            </button>
+                        </button>
           </nav>
-        </div>
+      </div>
 
         <div className="p-6">
           {activeTab === 'products' && (
@@ -158,8 +158,8 @@ export default function UpsellsPage() {
           {activeTab === 'settings' && (
             <UpsellSettings brandId={brandId} />
           )}
-        </div>
-      </div>
+            </div>
+          </div>
     </div>
   )
 } 
