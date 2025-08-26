@@ -15,19 +15,35 @@ const supabaseAdmin = createClient(
 )
 
 // Verify Shopify webhook authenticity
-function verifyShopifyWebhook(rawBody: string, hmacHeader: string): boolean {
-  const secret = process.env.SHOPIFY_CLIENT_SECRET
-  
-  if (!secret) {
-    console.error('Missing SHOPIFY_CLIENT_SECRET environment variable')
+async function verifyShopifyWebhook(rawBody: string, hmacHeader: string, shopDomain: string): Promise<boolean> {
+  try {
+    // Get brand-specific Shopify private app secret from database
+    const { data: brand, error: brandError } = await supabaseAdmin
+      .from('brands')
+      .select('shopify_private_app_secret')
+      .eq('shopify_domain', shopDomain)
+      .single()
+
+    if (brandError || !brand?.shopify_private_app_secret) {
+      console.error('❌ Brand not found or missing private app secret for shop:', shopDomain)
+      return false
+    }
+
+    const secret = brand.shopify_private_app_secret
+    console.log('🔐 Using brand-specific secret for HMAC verification')
+
+    const hmac = crypto.createHmac('sha256', secret)
+    hmac.update(rawBody, 'utf8')
+    const hash = hmac.digest('base64')
+    
+    const isValid = hash === hmacHeader
+    console.log('🔍 HMAC verification result:', { isValid, expected: hash, received: hmacHeader })
+    
+    return isValid
+  } catch (error) {
+    console.error('❌ Error during HMAC verification:', error)
     return false
   }
-
-  const hmac = crypto.createHmac('sha256', secret)
-  hmac.update(rawBody, 'utf8')
-  const hash = hmac.digest('base64')
-  
-  return hash === hmacHeader
 }
 
 // Function to trigger shipping zone sync
@@ -81,7 +97,15 @@ export async function POST(req: Request) {
     }
 
     const rawBody = await req.text()
-    if (!verifyShopifyWebhook(rawBody, hmac)) {
+    
+    // Extract shop domain from webhook topic for HMAC verification
+    const shopifyShopDomain = req.headers.get('x-shopify-shop-domain')
+    if (!shopifyShopDomain) {
+      console.error('❌ Missing shop domain in webhook headers')
+      return new NextResponse('Missing shop domain', { status: 400 })
+    }
+
+    if (!(await verifyShopifyWebhook(rawBody, hmac, shopifyShopDomain))) {
       return new NextResponse('Invalid HMAC', { status: 401 })
     }
 
@@ -108,12 +132,7 @@ export async function POST(req: Request) {
       return new NextResponse('OK', { status: 200 })
     }
 
-    // Extract shop domain from webhook topic
-    const shopifyShopDomain = req.headers.get('x-shopify-shop-domain')
-    if (!shopifyShopDomain) {
-      console.error('❌ Missing shop domain in webhook headers')
-      return new NextResponse('Missing shop domain', { status: 400 })
-    }
+
 
     // Find the brand by shop domain
     const { data: brand, error: brandError } = await supabaseAdmin
