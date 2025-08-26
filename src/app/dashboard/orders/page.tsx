@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { 
+import {
   EyeIcon, 
   CheckCircleIcon, 
   XCircleIcon, 
@@ -118,21 +118,21 @@ export default function OrdersPage() {
          
          // Fallback: Use the working SQL query we tested
          const { data: fallbackData, error: fallbackError } = await supabase
-           .from('merchant_orders')
-           .select(`
-             id,
+        .from('merchant_orders')
+        .select(`
+          id,
              merchant_id,
-             total_amount,
-             status,
-             fulfillment_status,
-             created_at,
-             updated_at,
+          total_amount,
+          status,
+          fulfillment_status,
+          created_at,
+          updated_at,
              shopify_order_id,
              commission_amount,
              order_id
-           `)
-           .eq('merchant_id', brandData.id)
-           .order('created_at', { ascending: false })
+        `)
+        .eq('merchant_id', brandData.id)
+        .order('created_at', { ascending: false })
 
          if (fallbackError) throw fallbackError
          
@@ -478,79 +478,79 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                                 {filteredOrders.map((order) => (
+                {filteredOrders.map((order) => (
                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
                           <div className="font-medium text-gray-900">
                             {order.orders?.[0]?.external_order_id || `ORD-${order.id.slice(0, 8)}`}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Mobile Order
-                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
+                          <div className="text-sm text-gray-500">
+                          Mobile Order
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
                           <div className="font-medium text-gray-900">
                             {getCustomerInfo(order).name}
-                          </div>
+                        </div>
                           <div className="text-sm text-gray-500">
                             {getCustomerInfo(order).email}
-                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {getStatusIcon(order.status)}
-                          <select
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {getStatusIcon(order.status)}
+                        <select
                             value={order.status || 'pending'}
-                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
                             className={`ml-2 px-2 py-1 text-xs rounded-full border-none ${statusColors[(order.status || 'pending') as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}`}
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                            <option value="refunded">Refunded</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                          <option value="refunded">Refunded</option>
+                        </select>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
                           {getFulfillmentIcon(order.orders?.[0]?.payment_status || 'paid')}
-                          <select
+                        <select
                             value={order.orders?.[0]?.payment_status || 'paid'}
-                            onChange={(e) => handleFulfillmentChange(order.id, e.target.value)}
+                          onChange={(e) => handleFulfillmentChange(order.id, e.target.value)}
                             className={`ml-2 px-2 py-1 text-xs rounded-full border-none ${fulfillmentColors[order.orders?.[0]?.payment_status || 'paid'] || 'bg-gray-100 text-gray-800'}`}
                           >
                             <option value="paid">Paid</option>
                             <option value="pending">Pending</option>
                             <option value="failed">Failed</option>
                             <option value="refunded">Refunded</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                        </select>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">
                           ${(order.total_amount || 0).toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">
                           ${(order.commission_amount || 0).toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-600">
-                          {new Date(order.created_at).toLocaleDateString()}
-                        </div>
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(order.created_at).toLocaleTimeString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
+                        {new Date(order.created_at).toLocaleTimeString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
                           <button 
                             className="text-gray-400 hover:text-gray-900" 
                             title="View Details"
@@ -559,17 +559,17 @@ export default function OrdersPage() {
                              setIsModalOpen(true);
                            }}
                           >
-                            <EyeIcon className="w-4 h-4" />
-                          </button>
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
                           {order.orders?.[0]?.external_order_id && (
                             <button className="text-gray-400 hover:text-gray-900" title="View in Shopify">
                               {/* Shopify link would go here */}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                                         </tr>
-                 ))}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -584,8 +584,8 @@ export default function OrdersPage() {
               }
             </p>
           </div>
-                 )}
-       </div>
+        )}
+      </div>
 
        {/* Order Details Modal */}
        {isModalOpen && selectedOrder && (
@@ -802,6 +802,6 @@ export default function OrdersPage() {
            </div>
          </div>
        )}
-     </div>
-   )
- }
+    </div>
+  )
+} 

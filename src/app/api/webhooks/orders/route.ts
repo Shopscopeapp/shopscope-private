@@ -46,45 +46,7 @@ async function verifyShopifyWebhook(rawBody: string, hmacHeader: string, shopDom
   }
 }
 
-// Function to trigger shipping zone sync
-async function triggerShippingSync(shopDomain: string, brandId: string) {
-  try {
-    // Get brand's access token
-    const { data: brand, error: brandError } = await supabaseAdmin
-      .from('brands')
-      .select('shopify_access_token')
-      .eq('id', brandId)
-      .single()
 
-    if (brandError || !brand?.shopify_access_token) {
-      console.warn('⚠️ Cannot sync shipping - missing access token for brand:', brandId)
-      return
-    }
-
-    // Call the shipping sync API internally
-    const syncResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/shopify/sync-shipping`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        brandId: brandId,
-        accessToken: brand.shopify_access_token,
-        shop: shopDomain
-      })
-    })
-
-    if (syncResponse.ok) {
-      console.log('✅ Shipping zones synced successfully for brand:', brandId)
-    } else {
-      const errorText = await syncResponse.text()
-      console.warn('⚠️ Shipping sync failed:', errorText)
-    }
-  } catch (error) {
-    console.warn('⚠️ Error triggering shipping sync:', error)
-    // Don't throw - we don't want to fail the order webhook if shipping sync fails
-  }
-}
 
 export async function POST(req: Request) {
   try {
@@ -121,22 +83,16 @@ export async function POST(req: Request) {
       source_url: order.source_url
     })
 
-    // Check if this order came from ShopScope app
-    // Shopify puts the app ID in source_name and app_id fields when order comes through our app
-    const shopScopeAppId = '276079869953' // Your ShopScope app ID
-    const isShopScopeOrder = order.app_id?.toString() === shopScopeAppId || 
-                            order.source_name === shopScopeAppId ||
-                            order.source_name === 'shopscope' || // Fallback for text-based identification
+    // Check if this order came from ShopScope
+    const isShopScopeOrder = order.source_name === 'shopscope' || 
                             order.referring_site?.includes('shopscope') ||
                             order.source_url?.includes('shopscope') ||
                             order.source_identifier?.includes('shopscope')
 
     if (!isShopScopeOrder) {
-      console.log('⏭️ Skipping non-ShopScope order. App ID:', order.app_id, 'Source name:', order.source_name)
+      console.log('⏭️ Skipping non-ShopScope order')
       return new NextResponse('OK', { status: 200 })
     }
-
-    console.log('✅ Order identified as ShopScope order')
 
 
 
@@ -154,74 +110,41 @@ export async function POST(req: Request) {
 
     console.log('🏪 Found brand:', brand.id)
 
-    // Calculate commission
-    const totalAmount = parseFloat(order.total_price || '0')
-    const commissionAmount = totalAmount * (brand.commission_rate || 0.10)
-
-    // Check if order already exists
-    const { data: existingOrder } = await supabaseAdmin
-      .from('orders')
-      .select('id')
-      .eq('shopify_order_id', order.id.toString())
-      .single()
-
-    if (existingOrder) {
-      console.log('🔄 Updating existing order:', existingOrder.id)
+    // Extract tracking information from fulfillments if available
+    let trackingNumber = null
+    let carrier = null
+    
+    if (order.fulfillments && order.fulfillments.length > 0) {
+      const fulfillment = order.fulfillments[0] // Get first fulfillment
+      trackingNumber = fulfillment.tracking_number || fulfillment.tracking_number_sha256
+      carrier = fulfillment.tracking_company || fulfillment.carrier_identifier || fulfillment.tracking_company_sha256
       
-      // Update existing order
-      const { error: updateError } = await supabaseAdmin
-        .from('orders')
-        .update({
-          total_amount: totalAmount,
-          commission_amount: commissionAmount,
-          financial_status: order.financial_status,
-          fulfillment_status: order.fulfillment_status,
-          payment_status: getPaymentStatus(order.financial_status),
-          line_items: order.line_items,
-          shipping_address: order.shipping_address,
-          customer_email: order.email,
-          customer_name: `${order.billing_address?.first_name || ''} ${order.billing_address?.last_name || ''}`.trim(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingOrder.id)
-
-      if (updateError) {
-        console.error('❌ Error updating order:', updateError)
-        return new NextResponse('Database error', { status: 500 })
-      }
-    } else {
-      console.log('🆕 Creating new order')
-      
-      // Create new order
-      const { error: insertError } = await supabaseAdmin
-        .from('orders')
-        .insert({
-          brand_id: brand.id,
-          shopify_order_id: order.id.toString(),
-          order_number: order.order_number,
-          total_amount: totalAmount,
-          commission_amount: commissionAmount,
-          financial_status: order.financial_status,
-          fulfillment_status: order.fulfillment_status,
-          payment_status: getPaymentStatus(order.financial_status),
-          line_items: order.line_items,
-          shipping_address: order.shipping_address,
-          customer_email: order.email,
-          customer_name: `${order.billing_address?.first_name || ''} ${order.billing_address?.last_name || ''}`.trim(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-
-      if (insertError) {
-        console.error('❌ Error creating order:', insertError)
-        return new NextResponse('Database error', { status: 500 })
+      if (trackingNumber || carrier) {
+        console.log('📦 Tracking info found:', { trackingNumber, carrier })
       }
     }
 
-    // Trigger shipping sync for new orders
-    if (!existingOrder) {
-      console.log('🚚 Triggering shipping sync for new order')
-      await triggerShippingSync(shopifyShopDomain, brand.id)
+    // Update tracking info in merchant_orders table for THIS brand
+    if (trackingNumber || carrier) {
+      const { error: trackingUpdateError } = await supabaseAdmin
+        .from('merchant_orders')
+        .update({
+          tracking_number: trackingNumber,
+          carrier: carrier,
+          fulfillment_status: order.fulfillment_status || 'fulfilled',
+          shipping_status: 'shipped',
+          updated_at: new Date().toISOString()
+        })
+        .eq('merchant_id', brand.id)  // Use brand ID for multi-brand orders
+        .eq('shopify_order_id', order.id.toString())  // Also match the Shopify order
+
+      if (trackingUpdateError) {
+        console.warn('⚠️ Warning: Could not update tracking in merchant_orders:', trackingUpdateError)
+      } else {
+        console.log('✅ Tracking info updated in merchant_orders for brand:', brand.id)
+      }
+    } else {
+      console.log('ℹ️ No tracking info found in fulfillment')
     }
 
     console.log('✅ Order processed successfully')
@@ -233,20 +156,7 @@ export async function POST(req: Request) {
   }
 }
 
-function getPaymentStatus(financialStatus: string): string {
-  switch (financialStatus) {
-    case 'paid':
-      return 'paid'
-    case 'pending':
-      return 'pending'
-    case 'refunded':
-      return 'refunded'
-    case 'partially_refunded':
-      return 'partially_refunded'
-    default:
-      return 'pending'
-  }
-}
+
 
 
 
