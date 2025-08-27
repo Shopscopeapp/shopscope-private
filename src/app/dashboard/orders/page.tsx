@@ -113,20 +113,8 @@ export default function OrdersPage() {
 
       console.log('🔍 Fetching orders for brand:', brandData.id)
 
-                    // Try RPC function first
-       let { data: ordersData, error: ordersError } = await supabase.rpc('get_brand_orders', {
-         p_brand_id: brandData.id
-       })
-
-       console.log('🔍 Raw RPC response:', { ordersData, ordersError })
-       console.log('🔍 ordersData type:', typeof ordersData)
-       console.log('🔍 ordersData length:', ordersData?.length)
-
-       if (ordersError || !ordersData || ordersData.length === 0) {
-         console.error('RPC error or empty results, trying fallback approach:', ordersError || 'Empty array')
-         
-         // Fallback: Use the working SQL query we tested
-         const { data: fallbackData, error: fallbackError } = await supabase
+      // Use the direct merchant_orders approach as primary method for complete data
+      let { data: ordersData, error: ordersError } = await supabase
         .from('merchant_orders')
         .select(`
           id,
@@ -147,84 +135,46 @@ export default function OrdersPage() {
         .eq('merchant_id', brandData.id)
         .order('created_at', { ascending: false })
 
-         if (fallbackError) throw fallbackError
-         
-         // Now fetch order details for each order using a batch approach
-         const orderIds = fallbackData?.map(o => o.order_id) || []
-         let ordersWithDetails = []
-         
-         if (orderIds.length > 0) {
-           // Batch fetch order details
-           const { data: orderDetails, error: orderError } = await supabase
-             .from('orders')
-             .select('id, user_id, shipping_address, items, external_order_id, payment_status, shipping_cost, tax_amount, discount_amount')
-             .in('id', orderIds)
+      if (ordersError) throw ordersError
+      
+       // Now fetch order details for each order using a batch approach
+       const orderIds = ordersData?.map(o => o.order_id) || []
+       let ordersWithDetails = []
+       
+       if (orderIds.length > 0) {
+         // Batch fetch order details
+         const { data: orderDetails, error: orderError } = await supabase
+           .from('orders')
+           .select('id, user_id, shipping_address, items, external_order_id, payment_status, tax_amount, discount_amount')
+           .in('id', orderIds)
 
-           if (!orderError && orderDetails) {
-             // Create a map for quick lookup
-             const orderDetailsMap = new Map(orderDetails.map(o => [o.id, o]))
-             
-                      ordersWithDetails = fallbackData.map(order => ({
-           ...order,
-           // Calculate commission if not set (10% of total amount)
-           commission_amount: order.commission_amount || (order.total_amount * 0.1),
-           orders: orderDetailsMap.has(order.order_id) ? [orderDetailsMap.get(order.order_id)] : []
-         }))
-           } else {
-             console.log('Batch order details error:', orderError)
-             ordersWithDetails = fallbackData.map(order => ({
-               ...order,
-               orders: []
-             }))
-           }
+         if (!orderError && orderDetails) {
+           // Create a map for quick lookup
+           const orderDetailsMap = new Map(orderDetails.map(o => [o.id, o]))
+           
+           ordersWithDetails = ordersData.map(order => ({
+             ...order,
+             // Calculate commission if not set (10% of total amount)
+             commission_amount: order.commission_amount || (order.total_amount * 0.1),
+             orders: orderDetailsMap.has(order.order_id) ? [orderDetailsMap.get(order.order_id)] : []
+           }))
          } else {
-           ordersWithDetails = fallbackData.map(order => ({
+           console.log('Batch order details error:', orderError)
+           ordersWithDetails = ordersData.map(order => ({
              ...order,
              orders: []
            }))
          }
-         
-         console.log('🔍 Fallback orders with details:', ordersWithDetails)
-         setOrders(ordersWithDetails)
-         ordersData = ordersWithDetails
        } else {
-         console.log('📦 RPC orders data received:', ordersData)
-         
-         // Transform RPC data to match our Order interface
-         const transformedOrders = (ordersData as BrandOrderRPC[])?.map(rpcOrder => ({
-           id: rpcOrder.merchant_order_id,
-           merchant_id: brandData.id,
-           total_amount: rpcOrder.total_amount,
-           status: rpcOrder.status,
-           fulfillment_status: rpcOrder.fulfillment_status,
-           created_at: rpcOrder.created_at,
-           updated_at: rpcOrder.created_at, // RPC doesn't return updated_at
-           shopify_order_id: undefined,
-           commission_amount: rpcOrder.total_amount * 0.1, // Calculate 10% commission
-           order_id: rpcOrder.order_id,
-           shipping_cost: 0, // RPC doesn't return shipping cost
-           tracking_number: null, // RPC doesn't return tracking
-           carrier: null, // RPC doesn't return carrier
-           shipping_status: null, // RPC doesn't return shipping status
-           orders: [{
-             id: rpcOrder.order_id,
-             user_id: '', // RPC doesn't return user_id
-             shipping_address: { 
-               name: rpcOrder.customer_name, 
-               email: rpcOrder.customer_email 
-             },
-             items: rpcOrder.items || [], // Use the actual items from RPC
-             external_order_id: rpcOrder.external_order_id,
-             payment_status: rpcOrder.payment_status || 'paid',
-             shipping_cost: 0, // RPC doesn't return shipping cost
-             tax_amount: 0, // RPC doesn't return tax
-             discount_amount: 0 // RPC doesn't return discount
-           }]
-         })) || []
-         
-         setOrders(transformedOrders)
-         ordersData = transformedOrders
+         ordersWithDetails = ordersData.map(order => ({
+           ...order,
+           orders: []
+         }))
        }
+       
+       console.log('🔍 Orders with details:', ordersWithDetails)
+       setOrders(ordersWithDetails)
+       ordersData = ordersWithDetails
 
       // Calculate stats
       const total = (ordersData || []).length
