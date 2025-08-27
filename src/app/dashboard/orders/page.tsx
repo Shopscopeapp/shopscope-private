@@ -23,6 +23,10 @@ interface Order {
   shopify_order_id?: string
   commission_amount: number
   order_id: string
+  // Tracking and shipping information
+  tracking_number?: string | null
+  carrier?: string | null
+  shipping_status?: string | null
   // Order details fetched separately
   orders: {
     id: string
@@ -723,6 +727,90 @@ export default function OrdersPage() {
                          minute: '2-digit'
                        })}</p>
                      </div>
+                   </div>
+                 </div>
+               </div>
+
+               {/* Shipping Information */}
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                     <div className="w-2 h-2 bg-black rounded-full mr-3"></div>
+                     Shipping Information
+                   </h4>
+                   <div className="space-y-3">
+                     <div>
+                       <p className="text-sm font-medium text-gray-600">Tracking Number</p>
+                       <p className="text-lg text-gray-900 font-mono">
+                         {selectedOrder.tracking_number || 'Not provided'}
+                       </p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-600">Carrier</p>
+                       <p className="text-lg text-gray-900">
+                         {selectedOrder.carrier || 'Not specified'}
+                       </p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-600">Shipping Status</p>
+                       <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
+                         selectedOrder.shipping_status === 'shipped'
+                           ? 'bg-green-100 text-green-800'
+                           : selectedOrder.shipping_status === 'delivered'
+                           ? 'bg-blue-100 text-blue-800'
+                           : 'bg-gray-200 text-gray-800'
+                       }`}>
+                         {selectedOrder.shipping_status || 'pending'}
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                     <div className="w-2 h-2 bg-black rounded-full mr-3"></div>
+                     Shipping Address
+                   </h4>
+                   <div className="space-y-3">
+                     {selectedOrder.orders?.[0]?.shipping_address ? (
+                       <>
+                         <div>
+                           <p className="text-sm font-medium text-gray-600">Name</p>
+                           <p className="text-lg text-gray-900">{selectedOrder.orders[0].shipping_address.name || 'N/A'}</p>
+                         </div>
+                         <div>
+                           <p className="text-sm font-medium text-gray-600">Address</p>
+                           <p className="text-lg text-gray-900">
+                             {selectedOrder.orders[0].shipping_address.address1 || 'N/A'}
+                             {selectedOrder.orders[0].shipping_address.address2 && (
+                               <span className="block">{selectedOrder.orders[0].shipping_address.address2}</span>
+                             )}
+                           </p>
+                         </div>
+                         <div className="grid grid-cols-2 gap-4">
+                           <div>
+                             <p className="text-sm font-medium text-gray-600">City</p>
+                             <p className="text-lg text-gray-900">{selectedOrder.orders[0].shipping_address.city || 'N/A'}</p>
+                           </div>
+                           <div>
+                             <p className="text-sm font-medium text-gray-600">State</p>
+                             <p className="text-lg text-gray-900">{selectedOrder.orders[0].shipping_address.state || 'N/A'}</p>
+                           </div>
+                         </div>
+                         <div className="grid grid-cols-2 gap-4">
+                           <div>
+                             <p className="text-sm font-medium text-gray-600">Postal Code</p>
+                             <p className="text-lg text-gray-900">{selectedOrder.orders[0].shipping_address.postal_code || 'N/A'}</p>
+                           </div>
+                           <div>
+                             <p className="text-sm font-medium text-gray-600">Country</p>
+                             <p className="text-lg text-gray-900">{selectedOrder.orders[0].shipping_address.country || 'N/A'}</p>
+                           </div>
+                         </div>
+                       </>
+                     ) : (
+                       <p className="text-gray-500">No shipping address available</p>
+                     )}
                    </div>
                  </div>
                </div>

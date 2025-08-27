@@ -163,8 +163,7 @@ export default function ProductsPage() {
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
-    draft: 0,
-    archived: 0
+    inactive: 0
   })
   const [aiStatus, setAiStatus] = useState<any>(null)
   const [aiServiceHealth, setAiServiceHealth] = useState<{ status: string; message?: string; error?: string } | null>(null)
@@ -267,13 +266,12 @@ export default function ProductsPage() {
 
       setProducts(productsWithEngagement)
 
-      // Calculate stats
-      const total = productsWithEngagement.length
-      const active = productsWithEngagement.filter(p => p.status === 'active').length
-      const draft = productsWithEngagement.filter(p => p.status === 'draft').length
-      const archived = productsWithEngagement.filter(p => p.status === 'archived').length
+             // Calculate stats
+       const total = productsWithEngagement.length
+       const active = productsWithEngagement.filter(p => p.status === 'active').length
+       const inactive = productsWithEngagement.filter(p => p.status === 'inactive').length
 
-      setStats({ total, active, draft, archived })
+       setStats({ total, active, inactive })
       setIsLoading(false)
     } catch (error) {
       console.error('Error fetching products:', error)
@@ -327,19 +325,29 @@ export default function ProductsPage() {
 
   const handleStatusChange = async (productId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
+      console.log(`🔄 Updating product ${productId} status to: ${newStatus}`)
+      
+      const { data, error } = await supabase
         .from('products')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', productId)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Database error updating product status:', error)
+        throw error
+      }
+
+      console.log('✅ Database update successful:', data)
 
       // Update local state
       setProducts(prev => prev.map(p => 
         p.id === productId ? { ...p, status: newStatus } : p
       ))
+      
+      console.log('✅ Local state updated successfully')
     } catch (error) {
-      console.error('Error updating product status:', error)
+      console.error('❌ Error updating product status:', error)
     }
   }
 
@@ -347,20 +355,31 @@ export default function ProductsPage() {
     if (selectedProducts.length === 0) return
 
     try {
-      const { error } = await supabase
+      console.log(`🔄 Bulk updating ${selectedProducts.length} products status to: ${newStatus}`)
+      console.log('📋 Product IDs:', selectedProducts)
+      
+      const { data, error } = await supabase
         .from('products')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .in('id', selectedProducts)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Database error updating product statuses:', error)
+        throw error
+      }
+
+      console.log('✅ Database bulk update successful:', data)
 
       // Update local state
       setProducts(prev => prev.map(p => 
         selectedProducts.includes(p.id) ? { ...p, status: newStatus } : p
       ))
       setSelectedProducts([])
+      
+      console.log('✅ Local state updated successfully')
     } catch (error) {
-      console.error('Error updating product statuses:', error)
+      console.error('❌ Error updating product statuses:', error)
     }
   }
 
@@ -554,20 +573,13 @@ export default function ProductsPage() {
           </div>
           <div className="text-2xl font-bold text-shopscope-black">{stats.active}</div>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-shopscope-gray-600">Draft</span>
-            <PencilIcon className="w-5 h-5 text-yellow-500" />
-          </div>
-          <div className="text-2xl font-bold text-shopscope-black">{stats.draft}</div>
-        </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-shopscope-gray-600">Archived</span>
-            <XCircleIcon className="w-5 h-5 text-red-500" />
-          </div>
-          <div className="text-2xl font-bold text-shopscope-black">{stats.archived}</div>
-        </div>
+                 <div className="bg-white rounded-xl p-6 shadow-sm border border-shopscope-gray-200">
+           <div className="flex items-center justify-between mb-2">
+             <span className="text-sm text-shopscope-gray-600">Inactive</span>
+             <XCircleIcon className="w-5 h-5 text-red-500" />
+           </div>
+           <div className="text-2xl font-bold text-shopscope-black">{stats.inactive}</div>
+         </div>
       </div>
 
       {/* Filters and Search */}
@@ -586,16 +598,15 @@ export default function ProductsPage() {
           </div>
 
           {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-shopscope-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-shopscope-black focus:border-transparent"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
+                     <select
+             value={statusFilter}
+             onChange={(e) => setStatusFilter(e.target.value)}
+             className="px-4 py-2 border border-shopscope-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-shopscope-black focus:border-transparent"
+           >
+             <option value="all">All Status</option>
+             <option value="active">Active</option>
+             <option value="inactive">Inactive</option>
+           </select>
 
           {/* Sort */}
           <select
@@ -625,18 +636,12 @@ export default function ProductsPage() {
                 >
                   Activate
                 </button>
-                <button
-                  onClick={() => handleBulkStatusChange('draft')}
-                  className="px-3 py-1 text-xs bg-yellow-100 text-yellow-800 rounded"
-                >
-                  Draft
-                </button>
-                <button
-                  onClick={() => handleBulkStatusChange('archived')}
-                  className="px-3 py-1 text-xs bg-red-100 text-red-800 rounded"
-                >
-                  Archive
-                </button>
+                                 <button
+                   onClick={() => handleBulkStatusChange('inactive')}
+                   className="px-3 py-1 text-xs bg-red-100 text-red-800 rounded"
+                 >
+                   Deactivate
+                 </button>
               </div>
             </div>
           </div>
@@ -726,19 +731,17 @@ export default function ProductsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={product.status}
-                        onChange={(e) => handleStatusChange(product.id, e.target.value)}
-                        className={`px-2 py-1 text-xs rounded-full border-none ${
-                          product.status === 'active' ? 'bg-green-100 text-green-800' :
-                          product.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        <option value="active">Active</option>
-                        <option value="draft">Draft</option>
-                        <option value="archived">Archived</option>
-                      </select>
+                                             <select
+                         value={product.status}
+                         onChange={(e) => handleStatusChange(product.id, e.target.value)}
+                         className={`px-2 py-1 text-xs rounded-full border-none ${
+                           product.status === 'active' ? 'bg-green-100 text-green-800' :
+                           'bg-red-100 text-red-800'
+                         }`}
+                       >
+                         <option value="active">Active</option>
+                         <option value="inactive">Inactive</option>
+                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-shopscope-black font-medium">
