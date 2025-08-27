@@ -35,6 +35,9 @@ interface Order {
     items: any
     external_order_id?: string
     payment_status: string
+    shipping_cost?: number
+    tax_amount?: number
+    discount_amount?: number
   }[]
 }
 
@@ -148,7 +151,7 @@ export default function OrdersPage() {
            // Batch fetch order details
            const { data: orderDetails, error: orderError } = await supabase
              .from('orders')
-             .select('id, user_id, shipping_address, items, external_order_id, payment_status')
+             .select('id, user_id, shipping_address, items, external_order_id, payment_status, shipping_cost, tax_amount, discount_amount')
              .in('id', orderIds)
 
            if (!orderError && orderDetails) {
@@ -200,7 +203,10 @@ export default function OrdersPage() {
              },
              items: rpcOrder.items || [], // Use the actual items from RPC
              external_order_id: rpcOrder.external_order_id,
-             payment_status: rpcOrder.payment_status || 'paid'
+             payment_status: rpcOrder.payment_status || 'paid',
+             shipping_cost: 0, // RPC doesn't return shipping cost
+             tax_amount: 0, // RPC doesn't return tax
+             discount_amount: 0 // RPC doesn't return discount
            }]
          })) || []
          
@@ -653,11 +659,33 @@ export default function OrdersPage() {
                    </h4>
                    <div className="space-y-3">
                      <div className="flex justify-between">
+                       <span className="text-sm font-medium text-gray-600">Subtotal</span>
+                       <span className="text-lg text-gray-900">${((selectedOrder.total_amount || 0) - (selectedOrder.orders?.[0]?.shipping_cost || 0) - (selectedOrder.orders?.[0]?.tax_amount || 0) + (selectedOrder.orders?.[0]?.discount_amount || 0)).toFixed(2)}</span>
+                     </div>
+                     {selectedOrder.orders?.[0]?.shipping_cost && selectedOrder.orders[0].shipping_cost > 0 && (
+                       <div className="flex justify-between">
+                         <span className="text-sm font-medium text-gray-600">Shipping</span>
+                         <span className="text-lg text-gray-900">${(selectedOrder.orders[0].shipping_cost || 0).toFixed(2)}</span>
+                       </div>
+                     )}
+                     {selectedOrder.orders?.[0]?.tax_amount && selectedOrder.orders[0].tax_amount > 0 && (
+                       <div className="flex justify-between">
+                         <span className="text-sm font-medium text-gray-600">Tax</span>
+                         <span className="text-lg text-gray-900">${(selectedOrder.orders[0].tax_amount || 0).toFixed(2)}</span>
+                       </div>
+                     )}
+                     {selectedOrder.orders?.[0]?.discount_amount && selectedOrder.orders[0].discount_amount > 0 && (
+                       <div className="flex justify-between border-t border-gray-200 pt-2">
+                         <span className="text-sm font-medium text-gray-600">Discount</span>
+                         <span className="text-lg text-green-600">-${(selectedOrder.orders[0].discount_amount || 0).toFixed(2)}</span>
+                       </div>
+                     )}
+                     <div className="flex justify-between border-t border-gray-200 pt-2">
                        <span className="text-sm font-medium text-gray-600">Total Amount</span>
                        <span className="text-2xl font-bold text-black">${(selectedOrder.total_amount || 0).toFixed(2)}</span>
                      </div>
                      <div className="flex justify-between">
-                       <span className="text-sm font-medium text-gray-600">Commission</span>
+                       <span className="text-sm font-medium text-gray-600">Commission (10%)</span>
                        <span className="text-lg font-semibold text-gray-900">${(selectedOrder.commission_amount || 0).toFixed(2)}</span>
                      </div>
                      <div className="flex justify-between">
@@ -820,8 +848,11 @@ export default function OrdersPage() {
                  <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                    <h4 className="text-xl font-semibold text-gray-900 flex items-center">
                      <ShoppingCartIcon className="w-6 h-6 mr-3 text-gray-600" />
-                     Order Items
+                     Order Items (This Brand Only)
                    </h4>
+                   <p className="text-sm text-gray-600 mt-1">
+                     Showing only items that belong to your brand from this multi-brand order
+                   </p>
                  </div>
                  <div className="overflow-x-auto">
                    <table className="w-full">
@@ -842,7 +873,10 @@ export default function OrdersPage() {
                        </tr>
                      </thead>
                      <tbody className="bg-white divide-y divide-gray-200">
-                       {selectedOrder.orders?.[0]?.items?.map((item: any, index: number) => (
+                       {selectedOrder.orders?.[0]?.items?.filter((item: any) => 
+                         // Only show items that belong to this brand (current merchant_id)
+                         item.merchant_id === selectedOrder.merchant_id
+                       )?.map((item: any, index: number) => (
                          <tr key={index} className="hover:bg-gray-50 transition-colors duration-150">
                            <td className="px-6 py-4 whitespace-nowrap">
                              <span className="text-sm font-medium text-gray-900 font-mono">{item.product_id || 'N/A'}</span>
