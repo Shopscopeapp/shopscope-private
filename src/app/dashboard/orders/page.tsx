@@ -27,6 +27,7 @@ interface Order {
   tracking_number?: string | null
   carrier?: string | null
   shipping_status?: string | null
+  shipping_cost?: number | null
   // Order details fetched separately
   orders: {
     id: string
@@ -35,7 +36,6 @@ interface Order {
     items: any
     external_order_id?: string
     payment_status: string
-    shipping_cost?: number
     tax_amount?: number
     discount_amount?: number
   }[]
@@ -94,6 +94,8 @@ export default function OrdersPage() {
     fetchData()
   }, [dateRange])
 
+
+
   const fetchData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -136,7 +138,11 @@ export default function OrdersPage() {
           updated_at,
              shopify_order_id,
              commission_amount,
-             order_id
+             order_id,
+          shipping_cost,
+          tracking_number,
+          carrier,
+          shipping_status
         `)
         .eq('merchant_id', brandData.id)
         .order('created_at', { ascending: false })
@@ -158,10 +164,12 @@ export default function OrdersPage() {
              // Create a map for quick lookup
              const orderDetailsMap = new Map(orderDetails.map(o => [o.id, o]))
              
-             ordersWithDetails = fallbackData.map(order => ({
-               ...order,
-               orders: orderDetailsMap.has(order.order_id) ? [orderDetailsMap.get(order.order_id)] : []
-             }))
+                      ordersWithDetails = fallbackData.map(order => ({
+           ...order,
+           // Calculate commission if not set (10% of total amount)
+           commission_amount: order.commission_amount || (order.total_amount * 0.1),
+           orders: orderDetailsMap.has(order.order_id) ? [orderDetailsMap.get(order.order_id)] : []
+         }))
            } else {
              console.log('Batch order details error:', orderError)
              ordersWithDetails = fallbackData.map(order => ({
@@ -192,8 +200,12 @@ export default function OrdersPage() {
            created_at: rpcOrder.created_at,
            updated_at: rpcOrder.created_at, // RPC doesn't return updated_at
            shopify_order_id: undefined,
-           commission_amount: 0, // RPC doesn't return commission_amount
+           commission_amount: rpcOrder.total_amount * 0.1, // Calculate 10% commission
            order_id: rpcOrder.order_id,
+           shipping_cost: 0, // RPC doesn't return shipping cost
+           tracking_number: null, // RPC doesn't return tracking
+           carrier: null, // RPC doesn't return carrier
+           shipping_status: null, // RPC doesn't return shipping status
            orders: [{
              id: rpcOrder.order_id,
              user_id: '', // RPC doesn't return user_id
@@ -660,12 +672,12 @@ export default function OrdersPage() {
                    <div className="space-y-3">
                      <div className="flex justify-between">
                        <span className="text-sm font-medium text-gray-600">Subtotal</span>
-                       <span className="text-lg text-gray-900">${((selectedOrder.total_amount || 0) - (selectedOrder.orders?.[0]?.shipping_cost || 0) - (selectedOrder.orders?.[0]?.tax_amount || 0) + (selectedOrder.orders?.[0]?.discount_amount || 0)).toFixed(2)}</span>
+                       <span className="text-lg text-gray-900">${((selectedOrder.total_amount || 0) - (selectedOrder.shipping_cost || 0) - (selectedOrder.orders?.[0]?.tax_amount || 0) + (selectedOrder.orders?.[0]?.discount_amount || 0)).toFixed(2)}</span>
                      </div>
-                     {selectedOrder.orders?.[0]?.shipping_cost && selectedOrder.orders[0].shipping_cost > 0 && (
+                     {selectedOrder.shipping_cost && selectedOrder.shipping_cost > 0 && (
                        <div className="flex justify-between">
                          <span className="text-sm font-medium text-gray-600">Shipping</span>
-                         <span className="text-lg text-gray-900">${(selectedOrder.orders[0].shipping_cost || 0).toFixed(2)}</span>
+                         <span className="text-lg text-gray-900">${(selectedOrder.shipping_cost || 0).toFixed(2)}</span>
                        </div>
                      )}
                      {selectedOrder.orders?.[0]?.tax_amount && selectedOrder.orders[0].tax_amount > 0 && (
