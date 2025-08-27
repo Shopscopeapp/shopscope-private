@@ -206,28 +206,28 @@ export default function ProductsPage() {
       // Get variant information for each product
       const productsWithVariants = await Promise.all(
         (productsData || []).map(async (product) => {
-          const { data: variants, error: variantsError } = await supabase
-            .from('product_variants')
-            .select('size, option1_value, option1, option2_value')
-            .eq('product_id', product.id)
+                     const { data: variants, error: variantsError } = await supabase
+             .from('product_variants')
+             .select('size, option1_value, option1_name, option2_value, option2_name')
+             .eq('product_id', product.id)
 
           if (variantsError) {
             console.error('Error fetching variants:', variantsError)
             return { ...product, variant_count: 0, variant_sizes: [] }
           }
 
-          const variantSizes = variants
-            ?.map(v => v.size || v.option1_value || v.option1)
-            .filter(Boolean)
-            .filter((size, index, arr) => arr.indexOf(size) === index) // Remove duplicates
+                     const variantSizes = variants
+             ?.map(v => v.size || v.option1_value || v.option1_name)
+             .filter(Boolean)
+             .filter((size, index, arr) => arr.indexOf(size) === index) // Remove duplicates
 
-          // Debug logging for size extraction
-          console.log(`Product ${product.title} variants:`, variants?.map(v => ({
-            size: v.size,
-            option1_value: v.option1_value,
-            option1: v.option1,
-            extracted_sizes: variantSizes
-          })))
+           // Debug logging for size extraction
+           console.log(`Product ${product.title} variants:`, variants?.map(v => ({
+             size: v.size,
+             option1_value: v.option1_value,
+             option1_name: v.option1_name,
+             extracted_sizes: variantSizes
+           })))
 
           return {
             ...product,
