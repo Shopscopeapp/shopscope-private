@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { 
   CogIcon,
   KeyIcon,
@@ -21,6 +22,30 @@ export default function ConnectShopifyPage() {
   })
   const [copied, setCopied] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          setIsAuthenticated(true)
+        } else {
+          // Redirect to login if not authenticated
+          window.location.href = '/auth/login?redirectTo=/auth/connect-shopify'
+        }
+      } catch (error) {
+        console.error('Auth check error:', error)
+        window.location.href = '/auth/login?redirectTo=/auth/connect-shopify'
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
 
   const requiredPermissions = [
     'read_products',
@@ -89,12 +114,21 @@ export default function ConnectShopifyPage() {
 
     setLoading(true)
     try {
-      // Get the current user's brand ID from the session
-      const response = await fetch('/api/auth/validate-session')
-      const sessionData = await response.json()
-      
-      if (!response.ok || !sessionData.success || !sessionData.brand) {
-        throw new Error('No active session or brand found. Please sign in again.')
+      // Get the current user's brand ID directly from Supabase
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('No active session found. Please sign in again.')
+      }
+
+      // Get the user's brand information
+      const { data: brand, error: brandError } = await supabase
+        .from('brands')
+        .select('id, shopify_domain')
+        .eq('user_id', user.id)
+        .single()
+
+      if (brandError || !brand) {
+        throw new Error('Brand not found. Please ensure you have a brand account.')
       }
 
       // Call our API to connect the private app
@@ -104,8 +138,8 @@ export default function ConnectShopifyPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          brandId: sessionData.brand.id,
-          shopifyDomain: sessionData.brand.shopify_domain,
+          brandId: brand.id,
+          shopifyDomain: brand.shopify_domain,
           apiKey: apiCredentials.apiKey,
           apiSecret: apiCredentials.apiSecret,
           accessToken: apiCredentials.accessToken
@@ -129,6 +163,23 @@ export default function ConnectShopifyPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen section-gradient flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-shopscope-black mx-auto mb-4"></div>
+          <p className="text-shopscope-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
+    return null
   }
 
   return (
