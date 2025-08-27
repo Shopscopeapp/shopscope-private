@@ -147,6 +147,35 @@ export async function POST(req: Request) {
       console.log('ℹ️ No tracking info found in fulfillment')
     }
 
+    // Extract and update shipping cost from order
+    let shippingCost = 0
+    if (order.shipping_lines && order.shipping_lines.length > 0) {
+      shippingCost = order.shipping_lines.reduce((total: number, line: any) => {
+        return total + (parseFloat(line.price) || 0)
+      }, 0)
+      console.log('🚚 Shipping cost calculated:', shippingCost)
+    }
+
+    // Update shipping cost in merchant_orders table for THIS brand
+    if (shippingCost > 0) {
+      const { error: shippingUpdateError } = await supabaseAdmin
+        .from('merchant_orders')
+        .update({
+          shipping_cost: shippingCost,
+          updated_at: new Date().toISOString()
+        })
+        .eq('merchant_id', brand.id)  // Use brand ID for multi-brand orders
+        .eq('shopify_order_id', order.id.toString())  // Also match the Shopify order
+
+      if (shippingUpdateError) {
+        console.warn('⚠️ Warning: Could not update shipping cost in merchant_orders:', shippingUpdateError)
+      } else {
+        console.log('✅ Shipping cost updated in merchant_orders for brand:', brand.id, 'Cost:', shippingCost)
+      }
+    } else {
+      console.log('ℹ️ No shipping cost found in order')
+    }
+
     console.log('✅ Order processed successfully')
     return new NextResponse('OK', { status: 200 })
     

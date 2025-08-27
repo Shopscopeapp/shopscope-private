@@ -36,8 +36,6 @@ interface Order {
     items: any
     external_order_id?: string
     payment_status: string
-    tax_amount?: number
-    discount_amount?: number
   }[]
 }
 
@@ -145,19 +143,32 @@ export default function OrdersPage() {
          // Batch fetch order details
          const { data: orderDetails, error: orderError } = await supabase
            .from('orders')
-           .select('id, user_id, shipping_address, items, external_order_id, payment_status, tax_amount, discount_amount')
+           .select('id, user_id, shipping_address, items, external_order_id, payment_status')
            .in('id', orderIds)
 
          if (!orderError && orderDetails) {
            // Create a map for quick lookup
            const orderDetailsMap = new Map(orderDetails.map(o => [o.id, o]))
            
-           ordersWithDetails = ordersData.map(order => ({
-             ...order,
-             // Calculate commission if not set (10% of total amount)
-             commission_amount: order.commission_amount || (order.total_amount * 0.1),
-             orders: orderDetailsMap.has(order.order_id) ? [orderDetailsMap.get(order.order_id)] : []
-           }))
+           ordersWithDetails = ordersData.map(order => {
+             const orderDetail = orderDetailsMap.get(order.order_id)
+             if (!orderDetail) return { ...order, orders: [] }
+             
+             // Filter items to only show items belonging to this brand
+             const brandItems = orderDetail.items?.filter((item: any) => 
+               item.merchant_id === order.merchant_id
+             ) || []
+             
+             return {
+               ...order,
+               // Calculate commission if not set (10% of total amount)
+               commission_amount: order.commission_amount || (order.total_amount * 0.1),
+               orders: [{
+                 ...orderDetail,
+                 items: brandItems // Only show brand-specific items
+               }]
+             }
+           })
          } else {
            console.log('Batch order details error:', orderError)
            ordersWithDetails = ordersData.map(order => ({
@@ -622,7 +633,7 @@ export default function OrdersPage() {
                    <div className="space-y-3">
                      <div className="flex justify-between">
                        <span className="text-sm font-medium text-gray-600">Subtotal</span>
-                       <span className="text-lg text-gray-900">${((selectedOrder.total_amount || 0) - (selectedOrder.shipping_cost || 0) - (selectedOrder.orders?.[0]?.tax_amount || 0) + (selectedOrder.orders?.[0]?.discount_amount || 0)).toFixed(2)}</span>
+                       <span className="text-lg text-gray-900">${((selectedOrder.total_amount || 0) - (selectedOrder.shipping_cost || 0)).toFixed(2)}</span>
                      </div>
                      {selectedOrder.shipping_cost && selectedOrder.shipping_cost > 0 && (
                        <div className="flex justify-between">
@@ -630,18 +641,7 @@ export default function OrdersPage() {
                          <span className="text-lg text-gray-900">${(selectedOrder.shipping_cost || 0).toFixed(2)}</span>
                        </div>
                      )}
-                     {selectedOrder.orders?.[0]?.tax_amount && selectedOrder.orders[0].tax_amount > 0 && (
-                       <div className="flex justify-between">
-                         <span className="text-sm font-medium text-gray-600">Tax</span>
-                         <span className="text-lg text-gray-900">${(selectedOrder.orders[0].tax_amount || 0).toFixed(2)}</span>
-                       </div>
-                     )}
-                     {selectedOrder.orders?.[0]?.discount_amount && selectedOrder.orders[0].discount_amount > 0 && (
-                       <div className="flex justify-between border-t border-gray-200 pt-2">
-                         <span className="text-sm font-medium text-gray-600">Discount</span>
-                         <span className="text-lg text-green-600">-${(selectedOrder.orders[0].discount_amount || 0).toFixed(2)}</span>
-                       </div>
-                     )}
+
                      <div className="flex justify-between border-t border-gray-200 pt-2">
                        <span className="text-sm font-medium text-gray-600">Total Amount</span>
                        <span className="text-2xl font-bold text-black">${(selectedOrder.total_amount || 0).toFixed(2)}</span>
