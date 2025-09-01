@@ -146,6 +146,80 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Enhanced Commission Earnings Section */}
+        <div className="mb-8">
+          {/* Main Commission Card */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Commission Earnings</h3>
+                <p className="text-sm text-green-600">Total commission earned from all orders</p>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-bold text-green-900">
+                  ${stats?.totalCommissionEarnings?.toFixed(2) || '0.00'}
+                </div>
+                <div className="text-sm text-green-600 mt-1">All Time Earnings</div>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <ChartBarIcon className="h-5 w-5 text-green-600" />
+              <span className="text-sm text-green-700">Revenue from platform fees</span>
+            </div>
+          </div>
+
+          {/* Time-based Commission Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Today's Commission */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Today</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    ${stats?.todayCommission?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <ChartBarIcon className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Commission earned today</p>
+            </div>
+
+            {/* This Week's Commission */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">This Week</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ${stats?.thisWeekCommission?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <ChartBarIcon className="h-5 w-5 text-blue-600" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Commission earned this week</p>
+            </div>
+
+            {/* This Month's Commission */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">This Month</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    ${stats?.thisMonthCommission?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <ChartBarIcon className="h-5 w-5 text-purple-600" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Commission earned this month</p>
+            </div>
+          </div>
+        </div>
+
         {/* Main Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">

@@ -41,6 +41,10 @@ export default function AdminBrands() {
   const [loading, setLoading] = useState(true)
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [editFormData, setEditFormData] = useState<Partial<Brand>>({})
+  const [brandToDelete, setBrandToDelete] = useState<Brand | null>(null)
 
   useEffect(() => {
     fetchBrands()
@@ -70,6 +74,62 @@ export default function AdminBrands() {
   const handleViewBrand = (brand: Brand) => {
     setSelectedBrand(brand)
     setShowModal(true)
+  }
+
+  const handleEditBrand = (brand: Brand) => {
+    setEditFormData(brand)
+    setShowEditModal(true)
+  }
+
+  const handleDeleteBrand = (brand: Brand) => {
+    setBrandToDelete(brand)
+    setShowDeleteModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editFormData.id) return
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`/api/admin/brands/${editFormData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editFormData)
+      })
+
+      if (response.ok) {
+        await fetchBrands()
+        setShowEditModal(false)
+        setEditFormData({})
+      }
+    } catch (error) {
+      console.error('Failed to update brand:', error)
+    }
+  }
+
+  const confirmDeleteBrand = async () => {
+    if (!brandToDelete) return
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`/api/admin/brands/${brandToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        await fetchBrands()
+        setShowDeleteModal(false)
+        setBrandToDelete(null)
+      }
+    } catch (error) {
+      console.error('Failed to delete brand:', error)
+    }
   }
 
   if (loading) {
@@ -165,8 +225,8 @@ export default function AdminBrands() {
             <h3 className="text-lg font-semibold text-gray-900">All Brands</h3>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            <table className="min-w-[1200px] divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -177,6 +237,12 @@ export default function AdminBrands() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Products
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Integrations
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Commission
@@ -223,6 +289,36 @@ export default function AdminBrands() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="text-sm text-gray-900">
+                        {brand.products_count || 0} total
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {brand.published_products_count || 0} published
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                            brand.stripe_connected 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            Stripe {brand.stripe_connected ? '✓' : '✗'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                            brand.shopify_connected 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            Shopify {brand.shopify_connected ? '✓' : '✗'}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {brand.commission_rate}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -239,10 +335,16 @@ export default function AdminBrands() {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50">
+                        <button
+                          onClick={() => handleEditBrand(brand)}
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50"
+                        >
                           <PencilIcon className="h-4 w-4" />
                         </button>
-                        <button className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
+                        <button
+                          onClick={() => handleDeleteBrand(brand)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                        >
                           <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
@@ -301,6 +403,115 @@ export default function AdminBrands() {
                   <p className="mt-1 text-sm text-gray-900">
                     {new Date(selectedBrand.created_at).toLocaleString()}
                   </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Brand Modal */}
+      {showEditModal && editFormData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Edit Brand</h3>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Brand Name</label>
+                  <input
+                    type="text"
+                    value={editFormData.name || ''}
+                    onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Commission Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editFormData.commission_rate || ''}
+                    onChange={(e) => setEditFormData({...editFormData, commission_rate: parseFloat(e.target.value)})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={editFormData.status || ''}
+                    onChange={(e) => setEditFormData({...editFormData, status: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black focus:border-black"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Brand Modal */}
+      {showDeleteModal && brandToDelete && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Delete Brand</h3>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Are you sure you want to delete the brand "{brandToDelete.name}"? This action cannot be undone.
+                </p>
+                
+                <div className="flex justify-end gap-2 pt-4">
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDeleteBrand}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                  >
+                    Delete Brand
+                  </button>
                 </div>
               </div>
             </div>
