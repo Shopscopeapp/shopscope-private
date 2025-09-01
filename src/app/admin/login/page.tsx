@@ -29,7 +29,13 @@ export default function AdminLogin() {
 
       if (data.success) {
         localStorage.setItem('admin_token', data.token)
-        router.push('/admin')
+        // Debug: verify token persistence before navigating
+        const saved = localStorage.getItem('admin_token')
+        console.log('Admin login: token saved?', !!saved)
+        // Small delay to ensure storage is flushed before navigation
+        setTimeout(() => {
+          router.replace('/admin')
+        }, 150)
       } else {
         setError(data.message || 'Login failed')
       }

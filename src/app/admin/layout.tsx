@@ -42,7 +42,8 @@ export default function AdminLayout({
       
       if (!token) {
         console.log('Admin layout: no token, redirecting to login')
-        router.push('/admin/login')
+        setLoading(false)
+        router.replace('/admin/login')
         return
       }
       
