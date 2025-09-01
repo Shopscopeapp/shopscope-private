@@ -63,6 +63,12 @@ export default function AdminLayout({
     router.push('/admin/login')
   }
 
+  // Allow the login page to render without the admin layout/auth gating
+  if (pathname === '/admin/login') {
+    console.log('Admin layout: on login route, skipping auth/layout')
+    return <div className="min-h-screen bg-gray-50">{children}</div>
+  }
+
   if (loading) {
     console.log('Admin layout: showing loading state')
     return (
