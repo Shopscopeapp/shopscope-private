@@ -10,8 +10,7 @@ import {
   CogIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon,
-  TrendingUpIcon
+  ClockIcon
 } from '@heroicons/react/24/outline'
 
 interface AdminStats {
@@ -274,7 +273,7 @@ export default function AdminDashboard() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button className="flex items-center gap-3 p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors">
-              <TrendingUpIcon className="h-5 w-5 text-gray-600" />
+              <ChartBarIcon className="h-5 w-5 text-gray-600" />
               <span className="text-sm font-medium text-gray-900">View Analytics</span>
             </button>
             
