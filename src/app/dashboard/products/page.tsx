@@ -134,7 +134,7 @@ interface Product {
   price: number
   sale_price?: number
   image_url?: string
-  images?: Array<{ src: string; alt?: string }>
+  images?: (string | { src: string; alt?: string })[]
   status: string
   shopify_product_id: string
   created_at: string
@@ -712,15 +712,33 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-12 h-12 bg-shopscope-gray-100 rounded-lg flex items-center justify-center mr-4">
-                           {product.images && product.images.length > 0 && product.images[0]?.src ? (
-                            <img
-                               src={product.images[0].src}
-                               alt={product.images[0].alt || product.title}
-                              className="w-full h-full object-cover rounded-lg"
-                            />
-                          ) : (
-                            <ShoppingBagIcon className="w-6 h-6 text-shopscope-gray-400" />
-                          )}
+                          {(() => {
+                            // Handle different image data structures
+                            let imageSrc = null
+                            let imageAlt = product.title
+                            
+                            if (product.image_url) {
+                              imageSrc = product.image_url
+                            } else if (product.images && product.images.length > 0) {
+                              const firstImage = product.images[0]
+                              if (typeof firstImage === 'string') {
+                                imageSrc = firstImage
+                              } else if (firstImage && firstImage.src) {
+                                imageSrc = firstImage.src
+                                imageAlt = firstImage.alt || product.title
+                              }
+                            }
+                            
+                            return imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={imageAlt}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <ShoppingBagIcon className="w-6 h-6 text-shopscope-gray-400" />
+                            )
+                          })()}
                         </div>
                         <div>
                           <div className="font-medium text-shopscope-black">{product.title}</div>

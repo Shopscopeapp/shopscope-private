@@ -29,13 +29,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch products with correct field names
+    // Fetch products with all fields (same as brand dashboard)
     const { data: products, error } = await supabase
       .from('products')
-      .select(`id, title, brand_id, status, created_at, updated_at, description, price, sale_price, inventory_count, category, brand, published_to_shopscope, validation_status`)
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (error) throw error
+
+
 
     // Get brand names for enrichment
     const brandIds = Array.from(new Set(products?.map(p => p.brand_id).filter(Boolean) || []))
@@ -48,17 +50,43 @@ export async function GET(request: NextRequest) {
     const brandMap = new Map<string, string>()
     brands?.forEach(b => brandMap.set(b.id, b.name))
 
-    // Get variant counts for each product
+    // Get variant counts and analytics data for each product
     const productsWithVariants = await Promise.all((products || []).map(async (product: Product) => {
       const { count: variantCount } = await supabase
         .from('product_variants')
         .select('*', { count: 'exact', head: true })
         .eq('product_id', product.id)
 
+      // Get analytics events for engagement metrics
+      const { data: productEvents } = await supabase
+        .from('brand_analytics_events')
+        .select('event_type')
+        .eq('product_id', product.id)
+        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+
+      // Get sales data from order items
+      const { data: productSales } = await supabase
+        .from('order_items')
+        .select('quantity, total_price')
+        .eq('product_id', product.id)
+
+      // Calculate engagement metrics
+      const events = productEvents || []
+      const sales = productSales || []
+      
+      const views = events.filter(e => e.event_type === 'product_view').length
+      const likes = events.filter(e => e.event_type === 'product_swipe_right').length
+      const totalSales = sales.reduce((sum, sale) => sum + (sale.quantity || 0), 0)
+      const totalRevenue = sales.reduce((sum, sale) => sum + (sale.total_price || 0), 0)
+
       return {
         ...product,
         brand_name: product.brand_id ? brandMap.get(product.brand_id) : product.brand || null,
-        variant_count: variantCount || 0
+        variant_count: variantCount || 0,
+        views,
+        likes,
+        total_sales: totalSales,
+        total_revenue: totalRevenue
       }
     }))
 

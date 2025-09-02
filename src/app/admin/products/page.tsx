@@ -29,6 +29,12 @@ interface Product {
   validation_status?: string
   brand_name?: string
   variant_count?: number
+  views?: number
+  likes?: number
+  total_sales?: number
+  total_revenue?: number
+  images?: (string | { src: string; alt?: string })[]
+  image_url?: string
 }
 
 export default function AdminProducts() {
@@ -60,6 +66,7 @@ export default function AdminProducts() {
       
       if (response.ok) {
         const data = await response.json()
+
         setProducts(data.products)
       }
     } catch (error) {
@@ -242,9 +249,9 @@ export default function AdminProducts() {
 
       {/* Products Table */}
       <div className="mt-8 flow-root">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="inline-block min-w-full align-middle">
-            <table className="min-w-full divide-y divide-gray-300">
+            <table className="min-w-[1200px] divide-y divide-gray-300">
               <thead>
                 <tr>
                   <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 w-64">Product</th>
@@ -252,6 +259,8 @@ export default function AdminProducts() {
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-24">Price</th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-20">Status</th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-20">Variants</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-32">Mobile Engagement</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-24">Sales</th>
                   <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 w-24">Published</th>
                   <th className="relative py-3.5 pl-3 pr-4 sm:pr-0 w-20">
                     <span className="sr-only">Actions</span>
@@ -262,13 +271,44 @@ export default function AdminProducts() {
                 {filteredProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="py-4 pl-4 pr-3">
-                      <div className="max-w-xs">
-                        <div className="text-sm font-medium text-gray-900 truncate">{product.title}</div>
-                        {product.description && (
-                          <div className="text-sm text-gray-500 truncate">
-                            {product.description}
-                          </div>
-                        )}
+                      <div className="flex items-center gap-3 max-w-xs">
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          {(() => {
+                            // Handle different image data structures
+                            let imageSrc = null
+                            let imageAlt = product.title
+                            
+                            if (product.image_url) {
+                              imageSrc = product.image_url
+                            } else if (product.images && product.images.length > 0) {
+                              const firstImage = product.images[0]
+                              if (typeof firstImage === 'string') {
+                                imageSrc = firstImage
+                              } else if (firstImage && firstImage.src) {
+                                imageSrc = firstImage.src
+                                imageAlt = firstImage.alt || product.title
+                              }
+                            }
+                            
+                            return imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={imageAlt}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <CubeIcon className="h-6 w-6 text-gray-400" />
+                            )
+                          })()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-gray-900 truncate">{product.title}</div>
+                          {product.description && (
+                            <div className="text-sm text-gray-500 truncate">
+                              {product.description}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-3 py-4 text-sm text-gray-500">
@@ -292,6 +332,32 @@ export default function AdminProducts() {
                     </td>
                     <td className="px-3 py-4 text-sm text-gray-500">
                       {product.variant_count || 0}
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-500">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <EyeIcon className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm">{product.views || 0}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                          </svg>
+                          <span className="text-sm">{product.likes || 0}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-500">
+                      <div className="text-sm">
+                        {product.total_sales && product.total_sales > 0 ? (
+                          <div>
+                            <div className="font-medium">{product.total_sales} sold</div>
+                            <div className="text-xs text-gray-400">${(product.total_revenue || 0).toFixed(2)}</div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">No sales data</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-4 text-sm text-gray-500">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
