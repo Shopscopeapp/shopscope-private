@@ -10,7 +10,7 @@ import {
   ChatBubbleLeftIcon,
   UserPlusIcon,
   CurrencyDollarIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon as TrendingUpIcon,
   CubeIcon
 } from '@heroicons/react/24/outline'
 

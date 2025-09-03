@@ -105,13 +105,14 @@ export async function GET(request: NextRequest) {
     // Top products calculation
     const productSales = new Map();
     topProducts?.forEach(item => {
-      if (item.products) {
-        const productTitle = item.products.title;
+      if (item.products && Array.isArray(item.products) && item.products.length > 0) {
+        const product = item.products[0]; // Get the first product from the array
+        const productTitle = product.title;
         const existing = productSales.get(productTitle) || { quantity: 0, revenue: 0 };
         productSales.set(productTitle, {
           quantity: existing.quantity + (item.quantity || 0),
           revenue: existing.revenue + (item.total_price || 0),
-          price: item.products.price
+          price: product.price
         });
       }
     });
@@ -124,8 +125,9 @@ export async function GET(request: NextRequest) {
     // Wishlist products calculation
     const wishlistCounts = new Map();
     mostWishlistedProducts?.forEach(item => {
-      if (item.products) {
-        const productTitle = item.products.title;
+      if (item.products && Array.isArray(item.products) && item.products.length > 0) {
+        const product = item.products[0]; // Get the first product from the array
+        const productTitle = product.title;
         wishlistCounts.set(productTitle, (wishlistCounts.get(productTitle) || 0) + 1);
       }
     });
@@ -147,17 +149,21 @@ export async function GET(request: NextRequest) {
       
       // Count unique products
       const uniqueProducts = new Set();
-      brand.products?.forEach((product: any) => uniqueProducts.add(product.id));
+      if (brand.products && Array.isArray(brand.products)) {
+        brand.products.forEach((product: any) => uniqueProducts.add(product.id));
+      }
       
       // Calculate revenue and orders
       let brandRevenue = 0;
       let brandOrders = 0;
-      brand.order_items?.forEach((item: any) => {
-        if (item.orders) {
-          brandRevenue += item.orders.total_amount || 0;
-          brandOrders += 1;
-        }
-      });
+      if (brand.order_items && Array.isArray(brand.order_items)) {
+        brand.order_items.forEach((item: any) => {
+          if (item.orders) {
+            brandRevenue += item.orders.total_amount || 0;
+            brandOrders += 1;
+          }
+        });
+      }
 
       brandStats.set(brandName, {
         orders: existing.orders + brandOrders,
