@@ -12,6 +12,7 @@ import {
   CheckCircleIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
+import AppInsights from '@/components/admin/AppInsights'
 
 interface AdminStats {
   totalBrands: number
@@ -340,6 +341,11 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* App Insights */}
+        <div className="mt-8">
+          <AppInsights />
         </div>
 
         {/* Quick Actions */}
